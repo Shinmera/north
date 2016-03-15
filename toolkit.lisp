@@ -157,13 +157,15 @@
 (defmethod make-signed ((request request) consumer-secret &optional token-secret)
   (setf (pget :oauth_signature (oauth request))
         (create-signature consumer-secret token-secret (http-method request)
-                          (url request) (oauth request) (get-params request))))
+                          (url request) (oauth request) (get-params request)))
+  request)
 
 (defmethod make-authorized ((request request))
   (unless (pget :oauth_signature (oauth request))
     (error "Request ~a must be signed first!" request))
   (setf (pget "Authorization" (headers request))
-        (format NIL "OAuth ~a" (concat-params (oauth request) ", "))))
+        (format NIL "OAuth ~a" (concat-params (oauth request) ", ")))
+  request)
 
 (defmethod verify ((request request) consumer-secret &optional token-secret)
   (let* ((oauths (destructure-oauth-header (pget "Authorization" (headers request))))
