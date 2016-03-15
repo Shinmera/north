@@ -15,6 +15,7 @@
   :serial T
   :components ((:file "package")
                (:file "toolkit")
+               (:file "request")
                (:file "server")
                (:file "documentation"))
   :depends-on (:uuid
