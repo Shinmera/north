@@ -71,7 +71,7 @@
           (string< akey bkey)))))
 
 (defun sort-params (params)
-  (sort params #'param<))
+  (sort (copy-list params) #'param<))
 
 (defun concat-params (params &optional (delim "&"))
   (let ((params (sort-params params)))
