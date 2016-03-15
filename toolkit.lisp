@@ -85,14 +85,16 @@
                        (url-encode val) rest)))))
 
 (defun url-parts (url)
-  (cl-ppcre:register-groups-bind (scheme host NIL port path)
-      ("^([a-zA-Z][a-zA-Z0-9+-.]+)://([a-zA-Z0-9-._:~%!$&'/\\(\\)*+,;=]+?)(:([0-9]+))?/([^?#]*).*$" url)
-    (values scheme host port path)))
+  (or (cl-ppcre:register-groups-bind (scheme host NIL port NIL path)
+          ("^([a-zA-Z][a-zA-Z0-9+-.]+)://([a-zA-Z0-9-._:~%!$&'/\\(\\)*+,;=]+?)(:([0-9]+))?(/([^?#]*).*)?$" url)
+        (list scheme host port (or path "")))
+      (error "Invalid URL ~s" url)))
 
 (defun normalize-url (url)
-  (multiple-value-bind (scheme host port path) (url-parts url)
+  (destructuring-bind (scheme host port path) (url-parts url)
     (format NIL "~(~a~)://~(~a~)~:[:~a~;~*~]/~a"
-            scheme host (or (and (string= port "80") (string-equal scheme "HTTP"))
+            scheme host (or (not port)
+                            (and (string= port "80") (string-equal scheme "HTTP"))
                             (and (string= port "443") (string-equal scheme "HTTPS"))) port path)))
 
 (defun normalize-token (method url params)
