@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Authorize User Account Access</title>
+    <style type="text/css">
+      body{
+          margin: 0;
+          background: #000;
+          font-family: sans-serif;
+      }
+      header{
+          background: #151515;
+          border-bottom: 2px solid #0088EE;
+          color: #FFF;
+          margin: 20px 0 0 0;
+          padding: 10px 50px 10px 50px;
+      }
+      header h1{
+          margin: 0;
+      }
+      main{
+          margin: 0 auto 0 auto;
+          padding: 20px 10px 20px 10px;
+          width: 800px;
+          background: #EEE;
+      }
+      main form{
+          text-align: center;
+      }
+      main form input[type=submit]{
+          font-size: 14pt;
+          padding: 5px;
+          border: none;
+          background: #0088EE;
+          color: #FFF;
+      }
+      main form input[type=submit]:hover{
+          background: #00EEFF;
+          cursor: pointer;
+      }
+      main form input[type=submit][value=Deny]{
+          background: #AA0000;
+      }
+      main form input[type=submit][value=Deny]:hover{
+          background: #EE5555;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Autorize User Account Access</h1>
+    </header>
+    <main>
+      <c:when test="error">
+        <div class="error" lquery="(text error)"/>
+      </c:when>
+      <c:when test="oauth_token">
+        <form action="/oauth/authenticate" method="POST">
+          <input type="submit" name="action" value="Allow" />
+          <input type="submit" name="action" value="Deny" />
+          <input type="hidden" name="oauth_token" lquery="(val oauth_token)" />
+        </form>
+      </c:when>
+    </main>
+  </body>
+</html>
