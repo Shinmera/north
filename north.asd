@@ -10,11 +10,12 @@
   :license "Artistic"
   :author "Nicolas Hafner <shinmera@tymoon.eu>"
   :maintainer "Nicolas Hafner <shinmera@tymoon.eu>"
-  :description "OAuth 1.0a Server Implementation"
-  :homepage "https://github.com/Shinmera/3d-vectors"
+  :description "OAuth 1.0a server implementation, the counterpiece to South."
+  :homepage "https://github.com/Shinmera/north"
   :serial T
   :components ((:file "package")
                (:file "toolkit")
+               (:file "conditions")
                (:file "request")
                (:file "server")
                (:file "documentation"))

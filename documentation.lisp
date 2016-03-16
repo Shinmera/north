@@ -6,11 +6,5 @@
 
 (in-package #:org.shirakumo.north)
 
-(defmacro setdocs (&body pairs)
-  `(progn
-     ,@(loop for (var doc) in pairs
-             collect (destructuring-bind (var &optional (type 'function))
-                         (if (listp var) var (list var))
-                       `(setf (documentation ',var ',type) ,doc)))))
 
 
