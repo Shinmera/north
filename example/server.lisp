@@ -49,7 +49,9 @@
   (make-instance
    'north:request
    :http-method (hunchentoot:request-method* request)
-   :url (hunchentoot:request-uri* request)
+   :url (north::normalize-url
+         (format NIL "http://~a/~a"
+                 (hunchentoot:host request) (hunchentoot:request-uri* request)))
    :post-params (hunchentoot:post-parameters* request)
    :get-params (hunchentoot:get-parameters* request)
    :headers (hunchentoot:headers-in* request)))
