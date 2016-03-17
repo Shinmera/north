@@ -58,12 +58,16 @@
        ("oauth_callback_confirmed" callback-confirmed)))))
 
 (hunchentoot:define-easy-handler (oauth/authenticate :uri "/oauth/authorize") (oauth_token verifier error)
-  (setf (hunchentoot:content-type*) "application/xml+html;charset=utf-8")
-  (let ((consumer (north:consumer server ))))
-  (clip:process *authorize-page*
-                :oauth_token oauth_token
-                :verifier verifier
-                :error error))
+  (with-error-handling ()
+    (let* ((session (or (north:session server oauth_token)
+                        (error 'north:invalid-token :request (make-request hunchentoot:*request*))))
+           (consumer (north:consumer server (north:key session))))
+      (setf (hunchentoot:content-type*) "application/xml+html;charset=utf-8")
+      (clip:process *authorize-page*
+                    :oauth_token oauth_token
+                    :consumer consumer
+                    :verifier verifier
+                    :error error))))
 
 (hunchentoot:define-easy-handler (oauth/authorize :uri "/oauth/authenticate") (oauth-token action)
   (with-error-handling ()
@@ -73,7 +77,8 @@
            (multiple-value-bind (token verifier url) (north:oauth/authorize *server* (make-request hunchentoot:*request*))
              (if url
                  (hunchentoot:redirect url)
-                 (hunchentoot:redirect (format NIL"/oauth/authorize?verifier=~a" (north:url-encode verifier))))))
+                 (hunchentoot:redirect (format NIL"/oauth/authorize?oauth_token=~a&verifier=~a"
+                                               (north:url-encode token) (north:url-encode verifier))))))
           (T
            (hunchentoot:redirect "/oauth/authorize?error=Invalid%20action.")))))
 

@@ -54,13 +54,20 @@
       <c:when test="error">
         <div class="error" lquery="(text error)"/>
       </c:when>
-      <c:when test="oauth_token">
+      <c:when test="verifier">
+        <div class="verifier">
+          Please enter the following verifier into your application:
+          <code class="verifier" lquery="(text verifier)"></code>
+        </div>
+      </c:when>
+      <c:unless test="(or error verifier)">
+        Are you sure you want to allow <span class="consumer" lquery="(text (north:name consumer))">STUFF</span> access to your account?
         <form action="/oauth/authenticate" method="POST">
           <input type="submit" name="action" value="Allow" />
           <input type="submit" name="action" value="Deny" />
           <input type="hidden" name="oauth_token" lquery="(val oauth_token)" />
         </form>
-      </c:when>
+      </c:unless>
     </main>
   </body>
 </html>
