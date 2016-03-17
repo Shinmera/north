@@ -29,7 +29,7 @@
    (access :initarg :access :accessor access))
   (:default-initargs
    :token (make-nonce)
-   :secret (make-nonce)
+   :token-secret (make-nonce)
    :verifier (make-nonce)
    :callback "oob"
    :key (error "KEY required.")
@@ -80,14 +80,14 @@
     (unless (or (not version) (string= "1.0" version))
       (error 'bad-version :request request))))
 
-(defun check-request (request server &optional secret)
-  (let* ((consumer-key (pget :oauth_consumer_key (oauth request)))
-         (consumer (consumer server consumer-key)))
+(defun check-request (request server)
+  (let ((session (session server (pget :oauth_token (oauth request))))
+        (consumer (consumer server (pget :oauth_consumer_key (oauth request)))))
     (check-version request)
     (check-nonce request server)
     (unless consumer
       (error 'invalid-consumer :request request))
-    (unless (verify request (secret (consumer server consumer-key)) secret)
+    (unless (verify request (secret consumer) (when session (token-secret session)))
       (error 'invalid-signature :request request))))
 
 (defun check-verifier (request server)
@@ -98,7 +98,8 @@
 
 (defun check-token (request server)
   (let ((session (session server (or (pget :oauth_token (oauth request))
-                                     (pget "oauth_token" (get-params request))))))
+                                     (pget :oauth_token (get-params request))
+                                     (pget :oauth_token (post-params request))))))
     (unless (and session (token session))
       (error 'invalid-token :request request))))
 
@@ -115,14 +116,13 @@
 
 (defmethod oauth/authorize ((server server) (request request))
   (check-token request server)
-  (let* ((session (session server (pget "oauth_token" (get-params request))))
+  (let* ((session (session server (or (pget :oauth_token (get-params request))
+                                      (pget :oauth_token (post-params request)))))
          (verifier (verifier session))
          (token (token session))
          (callback (callback session)))
     (unless verifier
       (error 'verifier-taken :request request))
-    ;; Invalidate verifier
-    (setf (verifier session) NIL)
     (values token verifier
             (when (string/= callback "oob")
               (format NIL "~a?oauth_token=~a&oauth_verifier=~a"
@@ -134,8 +134,10 @@
     :oauth_timestamp :oauth_nonce :oauth_token :oauth_verifier)
   (check-token request server)
   (check-verifier request server)
+  (check-request request server)
   (let ((session (session server (pget :oauth_token (oauth request)))))
-    (check-request request server)
+    ;; Invalidate verifier
+    (setf (verifier session) NIL)
     (setf (access session) :access)
     (rehash-session server session)
     (values (token session) (token-secret session))))
