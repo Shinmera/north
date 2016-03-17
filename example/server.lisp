@@ -62,19 +62,21 @@
       (respond
        ("oauth_token" token)
        ("oauth_token_secret" secret)
-       ("oauth_callback_confirmed" callback-confirmed)))))
+       ("oauth_callback_confirmed" (if callback-confirmed :true :false))))))
 
 (hunchentoot:define-easy-handler (oauth/authorize :uri "/oauth/authorize") (oauth_token verifier error)
   (with-error-handling ()
     (let* ((session (or (north:session *server* oauth_token)
                         (error 'north:invalid-token :request (make-request hunchentoot:*request*))))
            (consumer (north:consumer *server* (north:key session))))
-      (setf (hunchentoot:content-type*) "application/xml+html;charset=utf-8")
-      (clip:process *authorize-page*
-                    :oauth_token oauth_token
-                    :consumer consumer
-                    :verifier verifier
-                    :error error))))
+      (setf (hunchentoot:content-type*) "application/xhtml+xml")
+      (plump:serialize
+       (clip:process *authorize-page*
+                     :oauth_token oauth_token
+                     :consumer consumer
+                     :verifier verifier
+                     :error error)
+       NIL))))
 
 (hunchentoot:define-easy-handler (oauth/authenticate :uri "/oauth/authenticate") (oauth-token action)
   (with-error-handling ()
