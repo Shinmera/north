@@ -75,16 +75,17 @@
 (defun sort-params (params)
   (sort (copy-list params) #'param<))
 
-(defun concat-params (params &optional (delim "&"))
+(defun concat-params (params &key quote (delim "&"))
   (let ((params (sort-params params)))
     (with-output-to-string (out)
       (loop for (pair . rest) on params
             for (key . val) = pair
-            do (format out (format NIL "~~a=~~a~~@[~a~~*~~]" delim)
-                       (url-encode (etypecase key
-                                     (string key)
-                                     (symbol (string-downcase key))))
-                       (url-encode val) rest)))))
+            do (when (and key val)
+                 (format out (format NIL "~~a=~:[~~a~;~~s~]~~@[~a~~*~~]" quote delim)
+                         (url-encode (etypecase key
+                                       (string key)
+                                       (symbol (string-downcase key))))
+                         (url-encode val) rest))))))
 
 (defun url-parts (url)
   (or (cl-ppcre:register-groups-bind (scheme host NIL port NIL path)

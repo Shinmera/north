@@ -46,7 +46,7 @@
   (unless (pget :oauth_signature (oauth request))
     (error "Request ~a must be signed first!" request))
   (setf (pget "Authorization" (headers request))
-        (format NIL "OAuth ~a" (concat-params (oauth request) ", ")))
+        (format NIL "OAuth ~a" (concat-params (oauth request) :quote T :delim ", ")))
   request)
 
 (defmethod verify ((request request) consumer-secret &optional token-secret)
