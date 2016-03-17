@@ -132,3 +132,13 @@
                       (write-char c stream)))
             finally (when key (push (cons key (stream-data)) values))))
     (nreverse values)))
+
+(defun oauth-response->alist (body)
+  (mapcar (lambda (assignment)
+            (let ((pair (cl-ppcre:split "=" assignment)))
+              (cons (url-decode (first pair))
+                    (url-decode (second pair)))))
+          (cl-ppcre:split "&" body)))
+
+(defun alist->oauth-response (alist)
+  (concat-params alist))

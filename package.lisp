@@ -76,4 +76,6 @@
    #:concat-params
    #:normalize-url
    #:create-signature
-   #:destructure-oauth-header))
+   #:destructure-oauth-header
+   #:oauth-response->alist
+   #:alist->oauth-response))
