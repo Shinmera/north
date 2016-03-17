@@ -38,22 +38,25 @@
   ;; server.lisp
   (:export
    #:make-consumer
-   #:make-request-token
-   #:make-verifier-token
-   #:make-access-token
+   #:make-session
    #:consumer
-   #:request-secret
-   #:verifier-token
-   #:access-secret
+   #:session
+   #:rehash-session
    #:revoke-consumer
-   #:revoke-request-token
-   #:revoke-access-token
+   #:revoke-session
    #:record-nonce
    #:find-nonce
    #:oauth/request-token
    #:oauth/authorize
    #:oauth/access-token
    #:oauth/verify
+   #:session
+   #:token
+   #:secret
+   #:verifier
+   #:callback
+   #:key
+   #:access
    #:consumer
    #:key
    #:secret
