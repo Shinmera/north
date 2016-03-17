@@ -40,10 +40,11 @@
   (make-instance 'request :url url :http-method method :get-params get :post-params post :headers headers :oauth oauth))
 
 (defmethod make-signed ((request request) consumer-secret &optional token-secret)
-  (setf (oauth request) (remove-duplicates (oauth request) :from-end T :key #'car :test #'string-equal))
+  (setf (oauth request) (remove-duplicates (remove NIL (oauth request) :key #'cdr)
+                                           :from-end T :key #'car :test #'string-equal))
   (setf (pget :oauth_signature (oauth request))
         (create-signature consumer-secret token-secret (http-method request)
-                          (url request) (oauth request) (get-params request)))
+                          (url request) (oauth request) (append (get-params request) (post-params request))))
   request)
 
 (defmethod make-authorized ((request request))
@@ -57,6 +58,6 @@
   (let* ((oauths (destructure-oauth-header (pget "Authorization" (headers request))))
          (old-sig (pget :oauth_signature oauths))
          (new-sig (create-signature consumer-secret token-secret (http-method request)
-                                    (url request) (oauth request) (get-params request))))
+                                    (url request) (oauth request) (append (get-params request) (post-params request)))))
     
     (string= old-sig new-sig)))
