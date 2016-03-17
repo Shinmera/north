@@ -68,7 +68,7 @@
     (unless (string-equal "true" (pget :oauth_callback_confirmed result))
       (error 'callback-unconfirmed :request request))
     (setf (token client) (pget :oauth_token result))
-    (setf (secret client) (pget :oauth_token_secret result))
+    (setf (token-secret client) (pget :oauth_token_secret result))
     (format NIL "~a?oauth_token=~a"
             (authorize-uri client) (url-encode (token client)))))
 
@@ -77,7 +77,7 @@
                                      :oauth `((:oauth_verifier . ,verifier)
                                               (:oauth_token . ,token)))))
     (setf (token client) (pget :oauth_token result))
-    (setf (secret client) (pget :oauth_token_secret result))
+    (setf (token-secret client) (pget :oauth_token_secret result))
     (when (verify-uri client)
       (make-signed-request client (verify-uri client) :post))
     client))
