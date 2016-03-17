@@ -20,15 +20,17 @@
 
 (defmacro respond (&rest stuff)
   `(progn
-     (setf (hunchentoot:content-type*) "application/x-www-form-urlencoded")
+     (setf (hunchentoot:content-type*) "text/plain")
      (north:alist->oauth-response
-      ,@stuff)))
+      (list
+       ,@(loop for (key val) in stuff
+               collect `(cons ,key ,val))))))
 
 (defun error-out (err)
   (respond
-   ("status" . "error")
-   ("error_type" . (string (type-of err)))
-   ("error_text" . (let ((*print-escape* NIL)) (write-to-string err)))))
+   ("status" "error")
+   ("error_type" (string (type-of err)))
+   ("error_text" (let ((*print-escape* NIL)) (write-to-string err)))))
 
 (defmacro with-error-handling (() &body body)
   `(handler-case
@@ -56,15 +58,15 @@
   (with-error-handling ()
     (multiple-value-bind (token secret callback-confirmed) (north:oauth/request-token *server* (make-request hunchentoot:*request*))
       (respond
-       ("oauth_token" . token)
-       ("oauth_token_secret" . secret)
-       ("oauth_callback_confirmed" . callback-confirmed)))))
+       ("oauth_token" token)
+       ("oauth_token_secret" secret)
+       ("oauth_callback_confirmed" callback-confirmed)))))
 
-(hunchentoot:define-easy-handler (oauth/authenticate :uri "/oauth/authorize") (oauth_token verifier error)
+(hunchentoot:define-easy-handler (oauth/authorize :uri "/oauth/authorize") (oauth_token verifier error)
   (with-error-handling ()
-    (let* ((session (or (north:session server oauth_token)
+    (let* ((session (or (north:session *server* oauth_token)
                         (error 'north:invalid-token :request (make-request hunchentoot:*request*))))
-           (consumer (north:consumer server (north:key session))))
+           (consumer (north:consumer *server* (north:key session))))
       (setf (hunchentoot:content-type*) "application/xml+html;charset=utf-8")
       (clip:process *authorize-page*
                     :oauth_token oauth_token
@@ -72,7 +74,7 @@
                     :verifier verifier
                     :error error))))
 
-(hunchentoot:define-easy-handler (oauth/authorize :uri "/oauth/authenticate") (oauth-token action)
+(hunchentoot:define-easy-handler (oauth/authenticate :uri "/oauth/authenticate") (oauth-token action)
   (with-error-handling ()
     (cond ((string= action "Deny")
            "Shiet")
@@ -89,12 +91,12 @@
   (with-error-handling ()
     (multiple-value-bind (token secret) (north:oauth/access-token *server* (make-request hunchentoot:*request*))
       (respond
-       ("oauth_token" . token)
-       ("oauth_token_secret" . secret)))))
+       ("oauth_token" token)
+       ("oauth_token_secret" secret)))))
 
 (hunchentoot:define-easy-handler (oauth/verify :uri "/oauth/verify") ()
   (with-error-handling ()
     (north:oauth/verify *server* (make-request hunchentoot:*request*))
     (respond
-     ("status" . "success"))))
+     ("status" "success"))))
 
