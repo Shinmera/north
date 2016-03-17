@@ -21,15 +21,31 @@
       }
       main{
           margin: 0 auto 0 auto;
-          padding: 20px 10px 20px 10px;
+          padding: 10px 20px 10px 20px;
           width: 800px;
           background: #EEE;
+          font-size: 14pt;
+      }
+      main .error{
+          background: #AA0000;
+          color: #FFF;
+          font-weight: bold;
+          font-size: 1.2em;
+          padding: 7px;
+      }
+      main .error:before{
+          content: 'ERROR: ';
+      }
+      main code.verifier{
+          display: block;
+          text-align: center;
+          font-size: 2em;
       }
       main form{
           text-align: center;
       }
       main form input[type=submit]{
-          font-size: 14pt;
+          font-size: 1.5em;
           padding: 5px;
           border: none;
           background: #0088EE;
@@ -53,12 +69,12 @@
     </header>
     <main>
       <c:when test="error">
-        <div class="error" lquery="(text error)"/>
+        <div class="error" lquery="(text error)">Some error occurred maybe idunno.</div>
       </c:when>
       <c:when test="verifier">
         <div class="verifier">
           Please enter the following verifier into your application:
-          <code class="verifier" lquery="(text verifier)"></code>
+          <code class="verifier" lquery="(text verifier)">VERIFIER</code>
         </div>
       </c:when>
       <c:unless test="(or error verifier)">
