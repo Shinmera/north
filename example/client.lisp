@@ -6,3 +6,10 @@
 
 (in-package #:org.shirakumo.north.example)
 
+(defparameter *client* (make-instance 'north:client
+                                      :key (north:key *consumer*)
+                                      :secret (north:secret *consumer*)
+                                      :callback "oob"
+                                      :request-token-uri "http://localhost:4242/oauth/request-token"
+                                      :authorize-uri "http://localhost:4242/oauth/authorize"
+                                      :access-token-uri "http://localhost:4242/oauth/access-token"))
