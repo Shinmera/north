@@ -6,6 +6,8 @@
 
 (in-package #:org.shirakumo.north)
 
+(defvar *external-format* :utf-8)
+
 (defun pget (key alist)
   (cdr (assoc key alist :test #'string-equal)))
 
@@ -26,7 +28,7 @@
 
 (defun url-encode (thing)
   (with-output-to-string (out)
-    (loop for octet across (cryptos:to-octets thing)
+    (loop for octet across (cryptos:to-octets thing *external-format*)
           for char = (code-char octet)
           do (cond ((or (char<= #\0 char #\9)
                         (char<= #\a char #\z)

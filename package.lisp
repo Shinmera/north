@@ -65,6 +65,7 @@
    #:simple-server)
   ;; toolkit.lisp
   (:export
+   #:*external-format*
    #:pget
    #:url-encode
    #:url-decode
