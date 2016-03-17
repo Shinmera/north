@@ -89,7 +89,7 @@
 
 (defun url-parts (url)
   (or (cl-ppcre:register-groups-bind (scheme host NIL port NIL path)
-          ("^([a-zA-Z][a-zA-Z0-9+-.]+)://([a-zA-Z0-9-._:~%!$&'/\\(\\)*+,;=]+?)(:([0-9]+))?(/([^?#]*).*)?$" url)
+          ("^([a-zA-Z][a-zA-Z0-9+-.]+)://([a-zA-Z0-9-._:~%!$&'\\(\\)*+,;=]+?)(:([0-9]+))?(/+([^?#]*).*)?$" url)
         (list scheme host port (or path "")))
       (error "Invalid URL ~s" url)))
 
