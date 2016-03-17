@@ -36,7 +36,11 @@
   (when (pget "Authorization" (headers request))
     (setf (oauth request) (destructure-oauth-header (pget "Authorization" (headers request))))))
 
+(defun make-request (url method &key get post headers oauth)
+  (make-instance 'request :url url :http-method method :get-params get :post-params post :headers headers :oauth oauth))
+
 (defmethod make-signed ((request request) consumer-secret &optional token-secret)
+  (setf (oauth request) (remove-duplicates (oauth request) :from-end T :key #'car :test #'string-equal))
   (setf (pget :oauth_signature (oauth request))
         (create-signature consumer-secret token-secret (http-method request)
                           (url request) (oauth request) (get-params request)))

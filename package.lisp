@@ -34,7 +34,8 @@
    #:get-params
    #:post-params
    #:headers
-   #:oauth)
+   #:oauth
+   #:make-request)
   ;; server.lisp
   (:export
    #:make-consumer
