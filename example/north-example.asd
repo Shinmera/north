@@ -13,7 +13,9 @@
   :description "An example illustrating the use of North."
   :homepage "https://github.com/Shinmera/north"
   :serial T
-  :components ((:file "example"))
+  :components ((:file "package")
+               (:file "server")
+               (:file "client"))
   :depends-on (:north
                :drakma
                :hunchentoot

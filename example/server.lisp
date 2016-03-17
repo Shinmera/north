@@ -4,9 +4,6 @@
  Author: Nicolas Hafner <shinmera@tymoon.eu>
 |#
 
-(defpackage #:north-example
-  (:nicknames #:org.shirakumo.north.example)
-  (:use #:cl))
 (in-package #:org.shirakumo.north.example)
 
 (defvar *server* (make-instance 'north:simple-server))
