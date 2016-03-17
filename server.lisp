@@ -22,7 +22,7 @@
 
 (defclass session ()
   ((token :initarg :token :accessor token)
-   (secret :initarg :secret :accessor secret)
+   (token-secret :initarg :token-secret :accessor token-secret)
    (verifier :initarg :verifier :accessor verifier)
    (callback :initarg :callback :accessor callback)
    (key :initarg :key :accessor key)
@@ -111,7 +111,7 @@
                                (pget :oauth_consumer_key (oauth request))
                                (pget :oauth_callback (oauth request))
                                :access :request)))
-    (values (token session) (secret session) T)))
+    (values (token session) (token-secret session) T)))
 
 (defmethod oauth/authorize ((server server) (request request))
   (check-token request server)
@@ -138,7 +138,7 @@
     (check-request request server)
     (setf (access session) :access)
     (rehash-session server session)
-    (values (token session) (secret session))))
+    (values (token session) (token-secret session))))
 
 (defmethod oauth/verify ((server server) (request request))
   (check-parameters-present request
@@ -172,7 +172,7 @@
 (defmethod rehash-session ((server simple-server) (session session))
   (revoke-session server session)
   (setf (token session) (make-nonce))
-  (setf (secret session) (make-nonce))
+  (setf (token-secret session) (make-nonce))
   (setf (gethash (token session) (sessions server)) session))
 
 (defmethod revoke-consumer ((server simple-server) (consumer consumer))

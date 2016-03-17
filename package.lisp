@@ -53,7 +53,7 @@
    #:oauth/verify
    #:session
    #:token
-   #:secret
+   #:token-secret
    #:verifier
    #:callback
    #:key
