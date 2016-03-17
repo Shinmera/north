@@ -19,5 +19,4 @@
   :depends-on (:north
                :drakma
                :hunchentoot
-               :jsown
                :clip))

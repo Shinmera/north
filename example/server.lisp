@@ -12,17 +12,23 @@
 
 (defvar *consumer* (north:make-consumer *server* :name "North"))
 
-(defmacro json-out (&rest stuff)
+(defun start ()
+  (hunchentoot:start *hunchentoot*))
+
+(defun stop ()
+  (hunchentoot:stop *hunchentoot*))
+
+(defmacro respond (&rest stuff)
   `(progn
-     (setf (hunchentoot:content-type*) "application/json;charset=utf-8")
-     (jsown:to-json
-      (jsown:new-js ,@stuff))))
+     (setf (hunchentoot:content-type*) "application/x-www-form-urlencoded")
+     (north:alist->oauth-response
+      ,@stuff)))
 
 (defun error-out (err)
-  (json-out
-   ("status" "error")
-   ("error_type" (string (type-of err)))
-   ("error_text" (let ((*print-escape* NIL)) (write-to-string err)))))
+  (respond
+   ("status" . "error")
+   ("error_type" . (string (type-of err)))
+   ("error_text" . (let ((*print-escape* NIL)) (write-to-string err)))))
 
 (defmacro with-error-handling (() &body body)
   `(handler-case
@@ -49,10 +55,10 @@
 (hunchentoot:define-easy-handler (oauth/request-token :uri "/oauth/request-token") ()
   (with-error-handling ()
     (multiple-value-bind (token secret callback-confirmed) (north:oauth/request-token *server* (make-request hunchentoot:*request*))
-      (json-out
-       ("oauth_token" token)
-       ("oauth_token_secret" secret)
-       ("oauth_callback_confirmed" callback-confirmed)))))
+      (respond
+       ("oauth_token" . token)
+       ("oauth_token_secret" . secret)
+       ("oauth_callback_confirmed" . callback-confirmed)))))
 
 (hunchentoot:define-easy-handler (oauth/authenticate :uri "/oauth/authorize") (oauth_token verifier error)
   (with-error-handling ()
@@ -82,12 +88,13 @@
 (hunchentoot:define-easy-handler (oauth/access-token :uri "/oauth/access-token") ()
   (with-error-handling ()
     (multiple-value-bind (token secret) (north:oauth/access-token *server* (make-request hunchentoot:*request*))
-      (json-out
-       ("oauth_token" token)
-       ("oauth_token_secret" secret)))))
+      (respond
+       ("oauth_token" . token)
+       ("oauth_token_secret" . secret)))))
 
 (hunchentoot:define-easy-handler (oauth/verify :uri "/oauth/verify") ()
   (with-error-handling ()
     (north:oauth/verify *server* (make-request hunchentoot:*request*))
-    (json-out
-     ("status" "success"))))
+    (respond
+     ("status" . "success"))))
+
