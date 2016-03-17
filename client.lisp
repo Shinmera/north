@@ -16,9 +16,6 @@
   (let ((drakma:*text-content-types*
           (list* '("application" . "x-www-form-urlencoded")
                  drakma:*text-content-types*)))
-    (print (headers request))
-    (print (append (get-params request)
-                   (post-params request)))
     (multiple-value-bind (body status-code headers)
         (drakma:http-request
          (url request)
