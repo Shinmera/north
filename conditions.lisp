@@ -16,6 +16,9 @@
 (define-condition verification-error (north-condition error)
   ())
 
+(define-condition client-error (north-condition error)
+  ())
+
 (define-condition parameters-missing (parameter-error)
   ((parameters :initarg :parameters :reader parameters))
   (:default-initargs :parameters (error "PARAMETERS required."))
@@ -56,3 +59,18 @@
   ()
   (:report (lambda (c s) (format s "No consumer with key ~s."
                                  (pget :oauth_consumer_key (oauth (request c)))))))
+
+(define-condition request-failed (client-error)
+  ((body :initarg :body :reader body)
+   (status-code :initarg :status-code :reader status-code)
+   (headers :initarg :headers :reader headers))
+  (:default-initargs
+   :body (error "BODY required.")
+   :status-code (error "STATUS-CODE required.")
+   :headers (error "HEADERS required."))
+  (:report (lambda (c s) (format s "~a Request to ~a failed with status code ~a."
+                                 (http-method (request c)) (url (request c)) (status-code c)))))
+
+(define-condition callback-unconfirmed (client-error)
+  ()
+  (:report (lambda (c s) (format s "Callback was not confirmed on token request."))))

@@ -8,12 +8,30 @@
 (defpackage #:north
   (:nicknames #:org.shirakumo.north)
   (:use #:cl)
+  ;; client.lisp
+  (:export
+   #:call-request
+   #:call-signed
+   #:make-signed-request
+   #:initiate-authentication
+   #:complete-authentication
+   #:client
+   #:key
+   #:secret
+   #:token
+   #:token-secret
+   #:callback
+   #:request-token-uri
+   #:authorize-uri
+   #:access-token-uri
+   #:verify-uri)
   ;; conditions.lisp
   (:export
    #:north-condition
    #:request
    #:parameter-error
    #:verification-error
+   #:client-error
    #:parameters-missing
    #:parameters
    #:bad-version
@@ -22,7 +40,12 @@
    #:invalid-signature
    #:invalid-verifier
    #:invalid-token
-   #:invalid-consumer)
+   #:invalid-consumer
+   #:request-failed
+   #:body
+   #:status-code
+   #:headers
+   #:callback-unconfirmed)
   ;; request.lisp
   (:export
    #:make-signed

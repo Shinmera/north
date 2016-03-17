@@ -18,7 +18,9 @@
                (:file "conditions")
                (:file "request")
                (:file "server")
+               (:file "client")
                (:file "documentation"))
   :depends-on (:uuid
                :crypto-shortcuts
-               :cl-ppcre))
+               :cl-ppcre
+               :drakma))
