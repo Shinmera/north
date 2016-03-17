@@ -110,28 +110,72 @@
           (normalize-token method url (append oauth-params get-params))
           consumer-secret token-secret)))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defvar *whitespace* '(#\Space #\Linefeed #\Return #\Tab)))
+
+(defun start-p (start string)
+  (and (<= (length start) (length string))
+       (string= start string :end2 (length start))))
+
 (defun destructure-oauth-header (header)
-  (unless (and (<= 5 (length header)) (string= "OAuth" header :end2 5))
+  (unless (start-p "OAuth" header)
     (error "Header malformed, couldn't find \"OAuth\" prefix."))
-  (let ((stream (make-string-output-stream))
-        (key NIL)
-        (values ()))
-    (flet ((stream-data ()
-             (url-decode (get-output-stream-string stream))))
-      (loop for i from 6 below (length header)
-            for c = (aref header i)
-            do (cond ((find c '(#\Space #\Linefeed #\Return #\Tab)))
-                     ((char= c #\,)
-                      (unless key (error "Header malformed, value without a key."))
-                      (push (cons key (stream-data)) values)
-                      (setf key NIL))
-                     ((char= c #\=)
-                      (when key (error "Header malformed, unencoded =."))
-                      (setf key (stream-data)))
-                     (T
-                      (write-char c stream)))
-            finally (when key (push (cons key (stream-data)) values))))
-    (nreverse values)))
+  (when (< (length "OAuth .") (length header))
+    (loop with buffer = (make-string-output-stream)
+          with input = (make-string-input-stream header 6)
+          with values = ()
+          with key = NIL
+          with state = :expecting-key
+          for c = (read-char input NIL NIL) while c
+          do (labels ((write-to-buffer ()
+                        (write-char c buffer))
+                      (buffer-contents ()
+                        (url-decode (get-output-stream-string buffer)))
+                      (change-state (new-state)
+                        (setf state new-state)
+                        (case state
+                          (:end-key (setf key (buffer-contents)))
+                          (:end-val (push (cons key (buffer-contents))
+                                          values))))
+                      (change-state-immediate (new-state)
+                        (unread-char c input) (change-state new-state))
+                      (parse-error ()
+                        (error "Invalid character ~c in state ~s" c state)))
+               (case state
+                 (:expecting-key
+                  (case c
+                    (#.*whitespace* NIL)
+                    ((#\, #\= #\")  (parse-error))
+                    (T              (change-state-immediate :key))))
+                 (:key
+                  (case c
+                    (#.*whitespace* (change-state :end-key))
+                    ((#\=)          (change-state-immediate :end-key))
+                    ((#\, #\")      (parse-error))
+                    (T              (write-to-buffer))))
+                 (:end-key
+                  (case c
+                    (#.*whitespace* NIL)
+                    ((#\=)          (change-state :expecting-val))
+                    (T              (parse-error))))
+                 (:expecting-val
+                  (case c
+                    (#.*whitespace* NIL)
+                    ((#\")          (change-state :val))
+                    (T              (parse-error))))
+                 (:val
+                  (case c
+                    ((#\")          (change-state :end-val))
+                    ((#\, #\=)      (parse-error))
+                    (T              (write-to-buffer))))
+                 (:end-val
+                  (case c
+                    (#.*whitespace* NIL)
+                    ((#\,)          (change-state :expecting-key))
+                    (T              (write-to-buffer))))))
+          finally (unless (eql state :end-val)
+                    (error "Unexpected end in state ~s" state))
+                  (return (nreverse values)))))
 
 (defun oauth-response->alist (body)
   (mapcar (lambda (assignment)
