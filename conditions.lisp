@@ -27,7 +27,6 @@
 
 (define-condition bad-version (parameter-error)
   ()
-  (:default-initargs :version (error "VERSION required."))
   (:report (lambda (c s) (format s "The version ~s is not supported, must be \"1.0\"."
                                  (pget :oauth_version (oauth (request c)))))))
 
