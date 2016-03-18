@@ -63,6 +63,8 @@
             request)))
 
 (defmethod initiate-authentication (client)
+  (setf (token client) NIL)
+  (setf (token-secret client) NIL)
   (multiple-value-bind (result request) (make-signed-request client (request-token-uri client) :post
                                                              :oauth `((:oauth_callback . ,(callback client))))
     (unless (string-equal "true" (pget :oauth_callback_confirmed result))
