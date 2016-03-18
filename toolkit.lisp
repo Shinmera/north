@@ -78,16 +78,15 @@
   (sort (copy-list params) #'param<))
 
 (defun concat-params (params &key quote (delim "&"))
-  (let ((params (sort-params params)))
-    (with-output-to-string (out)
-      (loop for (pair . rest) on params
-            for (key . val) = pair
-            do (when (and key val)
-                 (format out (format NIL "~~a=~:[~~a~;~~s~]~~@[~a~~*~~]" quote delim)
-                         (url-encode (etypecase key
-                                       (string key)
-                                       (symbol (string-downcase key))))
-                         (url-encode val) rest))))))
+  (with-output-to-string (out)
+    (loop for (pair . rest) on (sort-params params)
+          for (key . val) = pair
+          do (when (and key val)
+               (format out (format NIL "~~a=~:[~~a~;~~s~]~~@[~a~~*~~]" quote delim)
+                       (url-encode (etypecase key
+                                     (string key)
+                                     (symbol (string-downcase key))))
+                       (url-encode val) rest)))))
 
 (defun url-parts (url)
   (or (cl-ppcre:register-groups-bind (scheme host NIL port NIL path)
@@ -106,10 +105,10 @@
   (format NIL "~:@(~a~)&~a&~a"
           method (url-encode (normalize-url url)) (url-encode (concat-params params))))
 
-(defun create-signature (consumer-secret token-secret method url oauth-params &optional get-params)
+(defun create-signature (consumer-secret token-secret method url oauth-params &optional params)
   (let ((oauth-params (remove-param :oauth_signature oauth-params)))
     (sign (pget :oauth_signature_method oauth-params)
-          (make-signature-base-string method url (append oauth-params get-params))
+          (make-signature-base-string method url (append oauth-params params))
           consumer-secret token-secret)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
