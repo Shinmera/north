@@ -23,9 +23,28 @@ Visit the returned URL and enter the verification code:
     
 And finally we can access some resources:
 
-    (let ((drakma:*text-content-types* (list* '("application" . "json") drakma:*text-content-types*)))
+    (ql:quickload :cl-json)
+    (defmacro with-json-decoding (() &body body)
+      `(let ((drakma:*text-content-types* (list* '("application" . "json") drakma:*text-content-types*)))
+         (cl-json:decode-json-from-string
+          (progn ,@body))))
+    
+    (with-json-decoding ()
       (north:make-signed-request *client* "https://api.twitter.com/1.1/account/verify_credentials.json" :get
-                                 :get '(("include_entities" . "true"))))
+                                 :params '(("include_entities" . "true"))))
+    
+    (with-json-decoding ()
+      (north:make-signed-request *client* "https://api.twitter.com/1.1/statuses/update.json" :post
+                                 :params '(("status" . "North and South, no matter where I look there's parens."))))
+
+We can also post some data:
+
+    (with-json-decoding ()
+      (north:make-signed-data-request *client* "https://api.twitter.com/1.1/statuses/update_with_media.json"
+                                      `(("media[]" . #p"~/sweet-bear.jpg"))
+                                      :params '(("status" . "Check out this sweet bear!"))))
+
+In order to keep the access token and secret so you can resume your session without repeatedly logging in every time, you can serialise the client with `make-load-form`.
 
 ## How To: Server
 TBD
