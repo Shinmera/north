@@ -46,9 +46,11 @@
                 (incf i 2))
                (#\+ (vector-push (char-code #\Space) out))
                (T (vector-push (char-code char) out)))
-          finally (return (cryptos:to-string out)))))
+          finally (return (cryptos:to-string out *external-format*)))))
 
 (defgeneric sign (method data consumer-secret &optional token-secret)
+  (:method (method data consumer-secret &optional token-secret)
+    (error "Unknown signing method ~s." method))
   (:method ((method (eql :plaintext)) data consumer-secret &optional token-secret)
     (format NIL "~a&~@[~a~]" consumer-secret token-secret))
   (:method ((method (eql :hmac-sha1)) data consumer-secret &optional token-secret)
