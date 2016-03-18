@@ -472,8 +472,8 @@ If QUOTE is non-NIL, the values are surrounded by #\\\".")
 In specific, it downcases the scheme, removes leading slashes from the path, and
 omits the 80 port if the scheme is HTTP, and the 443 port if the scheme is HTTPS.")
 
-  (function normalize-token
-    "Creates a normalized token as follows.
+  (function make-signature-base-string
+    "Creates a normalized signature base string as follows.
 
 TOKEN   ::= METHOD '&' URL '&' PARAMS
 METHOD  --- The method in uppercase

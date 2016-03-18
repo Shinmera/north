@@ -102,14 +102,14 @@
                             (and (string= port "80") (string-equal scheme "HTTP"))
                             (and (string= port "443") (string-equal scheme "HTTPS"))) port path)))
 
-(defun normalize-token (method url params)
+(defun make-signature-base-string (method url params)
   (format NIL "~:@(~a~)&~a&~a"
           method (url-encode (normalize-url url)) (url-encode (concat-params params))))
 
 (defun create-signature (consumer-secret token-secret method url oauth-params &optional get-params)
   (let ((oauth-params (remove-param :oauth_signature oauth-params)))
     (sign (pget :oauth_signature_method oauth-params)
-          (normalize-token method url (append oauth-params get-params))
+          (make-signature-base-string method url (append oauth-params get-params))
           consumer-secret token-secret)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
