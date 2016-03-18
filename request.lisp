@@ -13,15 +13,13 @@
 (defclass request ()
   ((http-method :initarg :http-method :accessor http-method)
    (url :initarg :url :accessor url)
-   (get-params :initarg :get-params :accessor get-params)
-   (post-params :initarg :post-params :accessor post-params)
+   (parameters :initarg :parameters :accessor parameters)
    (headers :initarg :headers :accessor headers)
    (oauth :initarg :oauth :accessor oauth))
   (:default-initargs
    :http-method :GET
    :url "http://example.com"
-   :get-params ()
-   :post-params ()
+   :parameters ()
    :headers ()
    :oauth ()))
 
@@ -36,15 +34,15 @@
   (when (pget "Authorization" (headers request))
     (setf (oauth request) (destructure-oauth-header (pget "Authorization" (headers request))))))
 
-(defun make-request (url method &key get post headers oauth)
-  (make-instance 'request :url url :http-method method :get-params get :post-params post :headers headers :oauth oauth))
+(defun make-request (url method &key params headers oauth)
+  (make-instance 'request :url url :http-method method :parameters params :headers headers :oauth oauth))
 
 (defmethod make-signed ((request request) consumer-secret &optional token-secret)
   (setf (oauth request) (remove-duplicates (remove NIL (oauth request) :key #'cdr)
                                            :from-end T :key #'car :test #'string-equal))
   (setf (pget :oauth_signature (oauth request))
         (create-signature consumer-secret token-secret (http-method request)
-                          (url request) (oauth request) (append (get-params request) (post-params request))))
+                          (url request) (oauth request) (parameters request)))
   request)
 
 (defmethod make-authorized ((request request))
@@ -58,6 +56,6 @@
   (let* ((oauths (destructure-oauth-header (pget "Authorization" (headers request))))
          (old-sig (pget :oauth_signature oauths))
          (new-sig (create-signature consumer-secret token-secret (http-method request)
-                                    (url request) (oauth request) (append (get-params request) (post-params request)))))
+                                    (url request) (oauth request) (parameters request))))
     
     (string= old-sig new-sig)))

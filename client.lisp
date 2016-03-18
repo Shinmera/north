@@ -8,8 +8,8 @@
 
 (defgeneric call (request &rest drakma-args))
 (defgeneric call-signed (request consumer-secret &optional token-secret &rest drakma-args))
-(defgeneric make-signed-request (client url method &key get post headers oauth))
-(defgeneric make-signed-data-request (client url data &key get post headers oauth))
+(defgeneric make-signed-request (client url method &key params headers oauth))
+(defgeneric make-signed-data-request (client url data &key params headers oauth))
 (defgeneric initiate-authentication (client))
 (defgeneric complete-authentication (client verifier &optional token))
 
@@ -21,8 +21,7 @@
         (apply #'drakma:http-request
                (url request)
                :method (http-method request)
-               :parameters (append (get-params request)
-                                   (post-params request))
+               :parameters (parameters request)
                :additional-headers (headers request)
                :url-encoder #'url-encode
                :external-format-in *external-format*
@@ -70,24 +69,23 @@
     :access-token-uri ,(access-token-uri client)
     :verify-uri ,(verify-uri client)))
 
-(defmethod make-signed-request ((client client) url method &key get post headers oauth)
-  (let ((request (make-request url method :get get :post post :headers headers
+(defmethod make-signed-request ((client client) url method &key params headers oauth)
+  (let ((request (make-request url method :params params :headers headers
                                           :oauth `(,@oauth
                                                    (:oauth_consumer_key . ,(key client))
                                                    (:oauth_token . ,(token client))))))
     (values (call-signed request (secret client) (token-secret client))
             request)))
 
-(defmethod make-signed-data-request ((client client) url data &key get post headers oauth)
-  (let ((request (make-request url :post :get get :post post :headers headers
+(defmethod make-signed-data-request ((client client) url data &key params headers oauth)
+  (let ((request (make-request url :post :params params :headers headers
                                          :oauth `(,@oauth
                                                   (:oauth_consumer_key . ,(key client))
                                                   (:oauth_token . ,(token client))))))
     (make-authorized (make-signed request (secret client) (token-secret client)))
-    (setf (post-params request)
-          (append (post-params request)
-                  (loop for (k . v) in data
-                        collect (list k v :content-type "application/octet-stream"))))
+    (setf (parameters request) (append (parameters request)
+                                       (loop for (k . v) in data
+                                             collect (list k v :content-type "application/octet-stream"))))
     (values (call request :form-data T)
             request)))
 

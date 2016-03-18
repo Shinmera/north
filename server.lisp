@@ -98,8 +98,7 @@
 
 (defun check-token (request server)
   (let ((session (session server (or (pget :oauth_token (oauth request))
-                                     (pget :oauth_token (get-params request))
-                                     (pget :oauth_token (post-params request))))))
+                                     (pget :oauth_token (parameters request))))))
     (unless (and session (token session))
       (error 'invalid-token :request request))))
 
@@ -116,8 +115,7 @@
 
 (defmethod oauth/authorize ((server server) (request request))
   (check-token request server)
-  (let* ((session (session server (or (pget :oauth_token (get-params request))
-                                      (pget :oauth_token (post-params request)))))
+  (let* ((session (session server (pget :oauth_token (parameters request))))
          (verifier (verifier session))
          (token (token session))
          (callback (callback session)))

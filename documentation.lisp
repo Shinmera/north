@@ -265,8 +265,7 @@ oauth parameters are overridden by the results of DESTRUCTURE-OAUTH-HEADER.
 
 See HTTP-METHOD
 See URL
-See GET-PARAMS
-See POST-PARAMS
+See PARAMETERS
 See HEADERS
 See OAUTH
 See DESTRUCTURE-OAUTH-HEADER")
@@ -277,11 +276,8 @@ See DESTRUCTURE-OAUTH-HEADER")
   (function url
     "Accesses the URL of the request.")
 
-  (function get-params
-    "Accesses the GET parameters of the request.")
-
-  (function post-params
-    "Accesses the POST parameters of the request.")
+  (function parameters
+    "Accesses the parameters of the request.")
 
   (function headers
     "Accesses the HTTP headers of the request.")

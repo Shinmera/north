@@ -55,8 +55,7 @@
    #:request
    #:http-method
    #:url
-   #:get-params
-   #:post-params
+   #:parameters
    #:headers
    #:oauth
    #:make-request)

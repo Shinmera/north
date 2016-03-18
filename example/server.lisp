@@ -52,8 +52,8 @@
    :url (north::normalize-url
          (format NIL "http://~a/~a"
                  (hunchentoot:host request) (hunchentoot:request-uri* request)))
-   :post-params (hunchentoot:post-parameters* request)
-   :get-params (hunchentoot:get-parameters* request)
+   :parameters (append (hunchentoot:post-parameters* request)
+                        (hunchentoot:get-parameters* request)) 
    :headers (hunchentoot:headers-in* request)))
 
 (hunchentoot:define-easy-handler (oauth/request-token :uri "/oauth/request-token") ()
