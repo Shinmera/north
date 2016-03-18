@@ -26,9 +26,9 @@
          :url-encoder #'url-encode
          :external-format-in *external-format*
          :external-format-out *external-format*)
-      (if (= status-code 200)
-          (oauth-response->alist body)
-          (error 'request-failed :request request :body body :status-code status-code :headers headers)))))
+      (unless (= status-code 200)
+        (error 'request-failed :request request :body body :status-code status-code :headers headers))
+      body)))
 
 (defmethod call-signed ((request request) consumer-secret &optional token-secret)
   (call-request (make-authorized (make-signed request consumer-secret token-secret))))
@@ -81,19 +81,21 @@
   (setf (token-secret client) NIL)
   (multiple-value-bind (result request) (make-signed-request client (request-token-uri client) :post
                                                              :oauth `((:oauth_callback . ,(callback client))))
-    (unless (string-equal "true" (pget :oauth_callback_confirmed result))
-      (error 'callback-unconfirmed :request request))
-    (setf (token client) (pget :oauth_token result))
-    (setf (token-secret client) (pget :oauth_token_secret result))
-    (format NIL "~a?oauth_token=~a"
-            (authorize-uri client) (url-encode (token client)))))
+    (let ((result (oauth-response->alist result)))
+      (unless (string-equal "true" (pget :oauth_callback_confirmed result))
+        (error 'callback-unconfirmed :request request))
+      (setf (token client) (pget :oauth_token result))
+      (setf (token-secret client) (pget :oauth_token_secret result))
+      (format NIL "~a?oauth_token=~a"
+              (authorize-uri client) (url-encode (token client))))))
 
 (defun complete-authentication ((client client) verifier &optional (token (token client)))
   (let ((result (make-signed-request client (access-token-uri client) :post
                                      :oauth `((:oauth_verifier . ,verifier)
                                               (:oauth_token . ,token)))))
-    (setf (token client) (pget :oauth_token result))
-    (setf (token-secret client) (pget :oauth_token_secret result))
-    (when (verify-uri client)
-      (make-signed-request client (verify-uri client) :post))
-    client))
+    (let ((result (oauth-response->alist result)))
+      (setf (token client) (pget :oauth_token result))
+      (setf (token-secret client) (pget :oauth_token_secret result))
+      (when (verify-uri client)
+        (make-signed-request client (verify-uri client) :post))
+      client)))

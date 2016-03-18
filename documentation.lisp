@@ -11,11 +11,10 @@
   (function call-request
     "Executes the given request object.
 
-If the http status code returned is 200, the response body is parsed into an alist
-by OAUTH-RESPONSE->ALIST. Otherwise, an error of type REQUEST-FAILED is signalled.
+If the http status code returned is 200, the response body is returned.
+Otherwise, an error of type REQUEST-FAILED is signalled.
 
 See REQUEST
-See OAUTH-RESPONSE->ALIST
 See REQUEST-FAILED")
 
   (function call-signed
