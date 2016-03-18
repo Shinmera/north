@@ -49,6 +49,9 @@ In order to keep the access token and secret so you can resume your session with
 ## How To: Server
 TBD
 
+## An Example Server / Client Setup
+See the [north-example](https://github.com/Shinmera/north/tree/master/example) system for a primitive, simple setup of a provider and consumer.
+
 ## OAuth Overview
 OAuth is supposed to provide a relatively convenient standardised way to authenticate a user against a service (provider), and then allow the application (consumer) to access resources on the user's behalf. Key to this are two parts, the signing process, and the actual authorisation process itself.
 
@@ -63,7 +66,7 @@ Whatever the case may be, before you can connect at all, you need to have access
 #### Step 1: Requesting a Request Token
 Now we actually start exchanging things with the provider as a consumer. To do this we send a signed request to the server's request-token endpoint. The request is signed using our application's secret, and we pass along the application's key as an OAuth parameter. Additionally we must give the provider a callback parameter that tells it what to do in the next step.
 
-The provider then verifies our signature, and if he thinks everything is proper, then it sends back a body containing a request token and request secret. From here on out our requests will need to contain the token as an OAuth parameter and be signed with the request secret along with the application secret.
+The provider then verifies our signature, and if it thinks everything is proper, then it sends back a body containing a request token and request secret. From here on out our requests will need to contain the token as an OAuth parameter and be signed with the request secret along with the application secret.
 
 #### Step 2: The User Authorises the Consumer
 The next step has to be done by the user themselves, such that granting access is always done through explicit consent. To do this, the consumer constructs an URL to the provider's authorize endpoint with the request token added as a GET parameter. The user then has to visit this URL.
@@ -71,7 +74,7 @@ The next step has to be done by the user themselves, such that granting access i
 Once on the page, the user should be confronted with a confirmation dialog, potentially also displaying all the things the consumer could get access to, if authorised. If the user accepts, the server generates a verifier token, which is then passed back to the consumer. This happens either automatically through a redirect, if the callback was a valid URL, or through the user manually, if the callback was the string "oob". In the latter case, the verifier is displayed to the user on the website, and they have to copy it into the consumer.
 
 #### Step 3: Requesting an Access Token
-The final step is to exchange the request token with an access token, using the verifier that was obtained in the previous section. To do this, a fully signed request is made to the provider's access-token endpoint, which verifies the request and verifier, rehashes the consumer's token, and upgrades its access. It then returns the newly generated access token and secret, that will henceforth be used to sign requests.
+The final step is to exchange the request token with an access token, using the verifier that was obtained in the previous section. To do this, a fully signed request is made to the provider's access-token endpoint, which verifies the request and verifier, rehashes the consumer's token, and upgrades its access. It then returns the newly generated access token and secret that will henceforth be used to sign requests.
 
 #### Step 4: Accessing Resources
 Now that we have an access token, we can start requesting whatever resources we were permitted to. A provider may for example offer several kinds of access tokens with varying ranges of permissions. The request endpoints are of course the provider's own decision. The only thing that OAuth specifies henceforth is that the request must be fully signed.
