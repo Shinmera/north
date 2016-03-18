@@ -78,14 +78,15 @@
             request)))
 
 (defmethod make-signed-data-request ((client client) url data &key params headers oauth)
-  (let ((request (make-request url :post :params params :headers headers
+  (let ((request (make-request url :post :headers headers
                                          :oauth `(,@oauth
                                                   (:oauth_consumer_key . ,(key client))
                                                   (:oauth_token . ,(token client))))))
     (make-authorized (make-signed request (secret client) (token-secret client)))
-    (setf (parameters request) (append (parameters request)
-                                       (loop for (k . v) in data
-                                             collect (list k v :content-type "application/octet-stream"))))
+    (setf (parameters request)
+          (append params
+                  (loop for (k . v) in data
+                        collect (list k v :content-type "application/octet-stream"))))
     (values (call request :form-data T)
             request)))
 
