@@ -54,6 +54,20 @@
    :access-token-uri (error "ACCESS-TOKEN-URI required.")
    :verify-uri NIL))
 
+(defmethod make-load-form ((client client) &optional env)
+  (declare (ignore env))
+  `(make-instance
+    'client
+    :key ,(key client)
+    :secret ,(secret client)
+    :token ,(token client)
+    :token-secret ,(token-secret client)
+    :callback ,(callback client)
+    :request-token-uri ,(request-token-uri client)
+    :authorize-uri ,(authorize-uri client)
+    :access-token-uri ,(access-token-uri client)
+    :verify-uri ,(verify-uri client)))
+
 (defmethod make-signed-request ((client client) url method &key get post headers oauth)
   (let ((request (make-request url method :get get :post post :headers headers
                                           :oauth `(,@oauth
