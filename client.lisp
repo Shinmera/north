@@ -89,7 +89,7 @@
       (format NIL "~a?oauth_token=~a"
               (authorize-uri client) (url-encode (token client))))))
 
-(defun complete-authentication ((client client) verifier &optional (token (token client)))
+(defmethod complete-authentication ((client client) verifier &optional (token (token client)))
   (let ((result (make-signed-request client (access-token-uri client) :post
                                      :oauth `((:oauth_verifier . ,verifier)
                                               (:oauth_token . ,token)))))
