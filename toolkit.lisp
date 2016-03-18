@@ -75,9 +75,11 @@
 (defun param< (a b)
   (destructuring-bind (akey . aval) a
     (destructuring-bind (bkey . bval) b
-      (or (and (string= akey bkey)
-               (string< aval bval))
-          (string< akey bkey)))))
+      (let ((akey (alist-key akey))
+            (bkey (alist-key bkey)))
+        (or (and (string= akey bkey)
+                 (string< aval bval))
+            (string< akey bkey))))))
 
 (defun sort-params (params)
   (sort (copy-list params) #'param<))
