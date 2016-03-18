@@ -26,9 +26,9 @@
 (defun remove-param (key alist)
   (remove key alist :key #'car :test #'string-equal))
 
-(defun url-encode (thing)
+(defun url-encode (thing &optional (external-format *external-format*))
   (with-output-to-string (out)
-    (loop for octet across (cryptos:to-octets thing *external-format*)
+    (loop for octet across (cryptos:to-octets thing external-format)
           for char = (code-char octet)
           do (cond ((or (char<= #\0 char #\9)
                         (char<= #\a char #\z)
@@ -37,7 +37,7 @@
                     (write-char char out))
                    (T (format out "%~2,'0x" (char-code char)))))))
 
-(defun url-decode (string)
+(defun url-decode (string &optional (external-format *external-format*))
   (let ((out (make-array (length string) :element-type '(unsigned-byte 8) :fill-pointer 0)))
     (loop for i from 0 below (length string)
           for char = (aref string i)
@@ -46,7 +46,7 @@
                 (incf i 2))
                (#\+ (vector-push (char-code #\Space) out))
                (T (vector-push (char-code char) out)))
-          finally (return (cryptos:to-string out *external-format*)))))
+          finally (return (cryptos:to-string out external-format)))))
 
 (defgeneric sign (method data consumer-secret &optional token-secret)
   (:method (method data consumer-secret &optional token-secret)
