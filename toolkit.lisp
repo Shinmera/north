@@ -8,6 +8,11 @@
 
 (defvar *external-format* :utf-8)
 
+(defun alist-key (thing)
+  (etypecase thing
+    (string thing)
+    (symbol (string-downcase thing))))
+
 (defun pget (key alist)
   (cdr (assoc key alist :test #'string-equal)))
 
@@ -20,7 +25,7 @@
             (list value)
             `(if ,cell
                  (setf (cdr ,cell) ,value)
-                 (push (cons ,key ,value) ,alist))
+                 (push (cons (alist-key ,key) ,value) ,alist))
             `(pget ,key ,alistv))))
 
 (defun remove-param (key alist)
