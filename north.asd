@@ -10,7 +10,7 @@
   :license "Artistic"
   :author "Nicolas Hafner <shinmera@tymoon.eu>"
   :maintainer "Nicolas Hafner <shinmera@tymoon.eu>"
-  :description "OAuth 1.0a server implementation, the counterpiece to South."
+  :description "oAuth 1.0a server and client implementation, the successor to South."
   :homepage "https://github.com/Shinmera/north"
   :serial T
   :components ((:file "package")
@@ -23,4 +23,5 @@
   :depends-on (:uuid
                :crypto-shortcuts
                :cl-ppcre
-               :drakma))
+               :drakma
+               :documentation-utils))
