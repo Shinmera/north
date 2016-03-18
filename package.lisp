@@ -10,9 +10,10 @@
   (:use #:cl)
   ;; client.lisp
   (:export
-   #:call-request
+   #:call
    #:call-signed
    #:make-signed-request
+   #:make-signed-data-request
    #:initiate-authentication
    #:complete-authentication
    #:client

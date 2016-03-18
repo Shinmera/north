@@ -6,32 +6,34 @@
 
 (in-package #:org.shirakumo.north)
 
-(defgeneric call-request (request))
-(defgeneric call-signed (request consumer-secret &optional token-secret))
+(defgeneric call (request &rest drakma-args))
+(defgeneric call-signed (request consumer-secret &optional token-secret &rest drakma-args))
 (defgeneric make-signed-request (client url method &key get post headers oauth))
+(defgeneric make-signed-data-request (client url data &key get post headers oauth))
 (defgeneric initiate-authentication (client))
 (defgeneric complete-authentication (client verifier &optional token))
 
-(defmethod call-request ((request request))
+(defmethod call ((request request) &rest drakma-args)
   (let ((drakma:*text-content-types*
           (list* '("application" . "x-www-form-urlencoded")
                  drakma:*text-content-types*)))
     (multiple-value-bind (body status-code headers)
-        (drakma:http-request
-         (url request)
-         :method (http-method request)
-         :parameters (append (get-params request)
-                             (post-params request))
-         :additional-headers (headers request)
-         :url-encoder #'url-encode
-         :external-format-in *external-format*
-         :external-format-out *external-format*)
+        (apply #'drakma:http-request
+               (url request)
+               :method (http-method request)
+               :parameters (append (get-params request)
+                                   (post-params request))
+               :additional-headers (headers request)
+               :url-encoder #'url-encode
+               :external-format-in *external-format*
+               :external-format-out *external-format*
+               drakma-args)
       (unless (= status-code 200)
         (error 'request-failed :request request :body body :status-code status-code :headers headers))
       body)))
 
-(defmethod call-signed ((request request) consumer-secret &optional token-secret)
-  (call-request (make-authorized (make-signed request consumer-secret token-secret))))
+(defmethod call-signed ((request request) consumer-secret &optional token-secret &rest drakma-args)
+  (apply #'call (make-authorized (make-signed request consumer-secret token-secret)) drakma-args))
 
 (defclass client ()
   ((key :initarg :key :accessor key)
@@ -74,6 +76,19 @@
                                                    (:oauth_consumer_key . ,(key client))
                                                    (:oauth_token . ,(token client))))))
     (values (call-signed request (secret client) (token-secret client))
+            request)))
+
+(defmethod make-signed-data-request ((client client) url data &key get post headers oauth)
+  (let ((request (make-request url :post :get get :post post :headers headers
+                                         :oauth `(,@oauth
+                                                  (:oauth_consumer_key . ,(key client))
+                                                  (:oauth_token . ,(token client))))))
+    (make-authorized (make-signed request (secret client) (token-secret client)))
+    (setf (post-params request)
+          (append (post-params request)
+                  (loop for (k . v) in data
+                        collect (list k v :content-type "application/octet-stream"))))
+    (values (call request :form-data T)
             request)))
 
 (defmethod initiate-authentication ((client client))

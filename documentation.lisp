@@ -8,7 +8,7 @@
 
 ;; client.lisp
 (docs:define-docs
-  (function call-request
+  (function call
     "Executes the given request object.
 
 If the http status code returned is 200, the response body is returned.
@@ -21,13 +21,24 @@ See REQUEST-FAILED")
     "Execute the given request object after signing it.
 
 See REQUEST
-See CALL-REQUEST
+See CALL
 See MAKE-AUTHORIZED
 See MAKE-SIGNED")
 
   (function make-signed-request
     "Construct and execute a signed request for the given client.
 
+Returns the result of the request execution as the first value and the constructed
+request object itself as the second.
+
+See CLIENT
+See REQUEST
+See CALL-SIGNED")
+
+  (function make-signed-data-request
+    "Construct and execute a signed request to send data payloads.
+
+Each data value can be either a pathname or an octet-vector.
 Returns the result of the request execution as the first value and the constructed
 request object itself as the second.
 
