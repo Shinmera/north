@@ -48,7 +48,7 @@
    :secret (error "SECRET required. This is your oAuth application's secret.")
    :token NIL
    :token-secret NIL
-   :callback :oob
+   :callback "oob"
    :request-token-uri (error "REQUEST-TOKEN-URI required.")
    :authorize-uri (error "AUTHORIZE-URI required.")
    :access-token-uri (error "ACCESS-TOKEN-URI required.")
