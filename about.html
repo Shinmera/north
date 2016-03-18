@@ -83,7 +83,37 @@
 
 <h2>How To: Server</h2>
 
-<p>TBD</p>
+<p>In order to provide a server you need to have a way of persisting two main pieces of information: applications, and sessions. The minimal amount of information necessary for an application is its key and secret. You most likely want to add additional information such as a name, icon, and description so that they can be displayed to the user when they authorise a consumer. A session needs to store quite a few pieces more: a token, token-secret, verifier token, callback, the application key, and the access rights. Default classes to contain all this information are provided through <code><a href="#NORTH:APPLICATION">application</a></code> and <code><a href="#NORTH:SESSION">session</a></code>.</p>
+
+<p>However, the persistence and bookkeeping of these objects is still up to your server implementations. To do this, you should subclass <code><a href="#NORTH:SERVER">server</a></code> and implement methods for <code><a href="#NORTH:MAKE-APPLICATION">make-application</a></code>, <code><a href="#NORTH:MAKE-SESSION">make-session</a></code>, <code><a href="#NORTH:APPLICATION">application</a></code>, <code><a href="#NORTH:SESSION">session</a></code>, <code><a href="#NORTH:REHASH-SESSION">rehash-session</a></code>, <code><a href="#NORTH:REVOKE-APPLICATION">revoke-application</a></code>, <code><a href="#NORTH:REVOKE-SESSION">revoke-session</a></code>, <code><a href="#NORTH:RECORD-NONCE">record-nonce</a></code>, and <code><a href="#NORTH:FIND-NONCE">find-nonce</a></code>. What exactly these functions should accomplish is described in their docstrings and should be fairly obvious.</p>
+
+<p>Once that is done, what's left to do is create a webservice with at least three endpoints. One for the request token, one for the authorization page, and one for the access token.</p>
+
+<h3>General Behaviour for All Endpoints</h3>
+
+<p>For each endpoint there exists a corresponding function to call, which will return a number of values that should be returned to the user. You can use <code>alist-&gt;oauth-response</code> to construct a properly formatted response body. The objects that you need to pass to these calls are your <code><a href="#NORTH:SERVER">server</a></code> instance and a <code><a href="#NORTH:REQUEST">request</a></code> instance that encapsulates the data that the server received with the request.</p>
+
+<p>Each endpoint function performs certain checks against the request and in case of problems signals an error. Your server should intercept these and act as follows: if the error is a <code><a href="#NORTH:PARAMETER-ERROR">parameter-error</a></code>, the HTTP response code should be <code>400</code>, and if the error is a <code><a href="#NORTH:VERIFICATION-ERROR">verification-error</a></code>, it should be <code>401</code>. Any other error is up to you. You may display information about the error in the response body, but the exact formatting thereof is up to you as well. It is however a good idea to output the same data format as your other endpoints would, aside from the oauth specific ones.</p>
+
+<h3>The Request Token Endpoint</h3>
+
+<p>The request token endpoint should call <code><a href="#NORTH:OAUTH/REQUEST-TOKEN">oauth/request-token</a></code> and return the values as <code>oauth_token</code>, <code>oauth_token_secret</code>, and <code>oauth_callback_confirmed</code> respectively.</p>
+
+<h3>The Authorize Endpoint</h3>
+
+<p>The authorize page is special in the sense that it is not called with an oauth signed request. Instead the user calls it through a browser and the only thing it receives is the request token. The provider must then first authenticate the user and after having done so, display a page to the user that shows information about the application that they're connecting through and give them the option to either allow the application access or deny it. </p>
+
+<p>If the user selects allow, <code><a href="#NORTH:OAUTH/AUTHORIZE">oauth/authorize</a></code> should be called. If it returns a third value, the server should cause the user to be redirected to that URL. If not, the server should display a page that shows the second value, which is the verification token. The user must then copy this value into the consumer.</p>
+
+<p>If the user selects deny, the provider must not necessarily do anything except ensure that the <code><a href="#NORTH:SESSION">session</a></code> is revoked and thus prevent the consumer from gaining access. It is not required to notify the consumer of this in any way.</p>
+
+<h3>The Access Token Endpoint</h3>
+
+<p>The access token endpoint should call <code><a href="#NORTH:OAUTH/ACCESS-TOKEN">oauth/access-token</a></code> and return the values as <code>oauth_token</code>, and <code>oauth_token_secret</code> respectively.</p>
+
+<h3>Protected Resource Endpoint</h3>
+
+<p>Any such endpoint should call <code><a href="#NORTH:OAUTH/VERIFY">oauth/verify</a></code>. This function returns nothing useful and only performs checks that if failed result in an error being signalled as usual. You may additionally want to check the session for permissions to access the specific endpoint if such a distinction exists. However, such additional functionality is up to you to design.</p>
 
 <h2>An Example Server / Client Setup</h2>
 
