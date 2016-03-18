@@ -408,12 +408,21 @@ Signals a PARAMETER-ERROR or VERIFICATION-ERROR on an invalid request."))
     "The external format to use to url-en/decode and execute requests.
 Defaults to :UTF-8")
 
+  (function alist-key
+    "Turn THING into a string suitable for a property alist.
+
+Symbols get downcased, strings stay as they are, everything else results
+in a type error.")
+
   (function pget
     "Easy accessor for alists. 
 
 Checks keys STRING-EQUALly and returns the value directly, if found.
 SETF-able. If a key is set that does not occur in the alist, a new
-entry is PUSHed, otherwise the existing one is modified.")
+entry is PUSHed, otherwise the existing one is modified. The key is
+coerced using ALIST-KEY
+
+See ALIST-KEY")
 
   (function remove-param
     "Remove the given key from the alist.
@@ -449,7 +458,8 @@ to a keyword first.")
     "Compares two parameters as required by the oauth spec.
 
 If the two keys of the parameters are equal, the values are compared instead.
-Comparison happens by lexicographic string<.")
+Comparison happens by lexicographic string<. If a key is a symbol it is coerced
+using ALIST-KEY before comparison.")
 
   (function sort-params
     "Creates a fresh list in which the parameters are sorted.
