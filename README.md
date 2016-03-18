@@ -47,7 +47,32 @@ We can also post some data:
 In order to keep the access token and secret so you can resume your session without repeatedly logging in every time, you can serialise the client with `make-load-form`.
 
 ## How To: Server
-TBD
+In order to provide a server you need to have a way of persisting two main pieces of information: applications, and sessions. The minimal amount of information necessary for an application is its key and secret. You most likely want to add additional information such as a name, icon, and description so that they can be displayed to the user when they authorise a consumer. A session needs to store quite a few pieces more: a token, token-secret, verifier token, callback, the application key, and the access rights. Default classes to contain all this information are provided through `application` and `session`.
+
+However, the persistence and bookkeeping of these objects is still up to your server implementations. To do this, you should subclass `server` and implement methods for `make-application`, `make-session`, `application`, `session`, `rehash-session`, `revoke-application`, `revoke-session`, `record-nonce`, and `find-nonce`. What exactly these functions should accomplish is described in their docstrings and should be fairly obvious.
+
+Once that is done, what's left to do is create a webservice with at least three endpoints. One for the request token, one for the authorization page, and one for the access token.
+
+### General Behaviour for All Endpoints
+For each endpoint there exists a corresponding function to call, which will return a number of values that should be returned to the user. You can use `alist->oauth-response` to construct a properly formatted response body. The objects that you need to pass to these calls are your `server` instance and a `request` instance that encapsulates the data that the server received with the request.
+
+Each endpoint function performs certain checks against the request and in case of problems signals an error. Your server should intercept these and act as follows: if the error is a `parameter-error`, the HTTP response code should be `400`, and if the error is a `verification-error`, it should be `401`. Any other error is up to you. You may display information about the error in the response body, but the exact formatting thereof is up to you as well. It is however a good idea to output the same data format as your other endpoints would, aside from the oauth specific ones.
+
+### The Request Token Endpoint
+The request token endpoint should call `oauth/request-token` and return the values as `oauth_token`, `oauth_token_secret`, and `oauth_callback_confirmed` respectively.
+
+### The Authorize Endpoint
+The authorize page is special in the sense that it is not called with an oauth signed request. Instead the user calls it through a browser and the only thing it receives is the request token. The provider must then first authenticate the user and after having done so, display a page to the user that shows information about the application that they're connecting through and give them the option to either allow the application access or deny it. 
+
+If the user selects allow, `oauth/authorize` should be called. If it returns a third value, the server should cause the user to be redirected to that URL. If not, the server should display a page that shows the second value, which is the verification token. The user must then copy this value into the consumer.
+
+If the user selects deny, the provider must not necessarily do anything except ensure that the `session` is revoked and thus prevent the consumer from gaining access. It is not required to notify the consumer of this in any way.
+
+### The Access Token Endpoint
+The access token endpoint should call `oauth/access-token` and return the values as `oauth_token`, and `oauth_token_secret` respectively.
+
+### Protected Resource Endpoint
+Any such endpoint should call `oauth/verify`. This function returns nothing useful and only performs checks that if failed result in an error being signalled as usual. You may additionally want to check the session for permissions to access the specific endpoint if such a distinction exists. However, such additional functionality is up to you to design.
 
 ## An Example Server / Client Setup
 See the [north-example](https://github.com/Shinmera/north/tree/master/example) system for a primitive, simple setup of a provider and consumer.
