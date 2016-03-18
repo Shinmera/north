@@ -283,7 +283,10 @@ See DESTRUCTURE-OAUTH-HEADER")
     "Accesses the HTTP headers of the request.")
 
   (function oauth
-    "Accesses the pure oauth parameters of the request."))
+    "Accesses the pure oauth parameters of the request.")
+
+  (function make-request
+    "Shorthand function to construct a request object."))
 
 ;; server.lisp
 (docs:define-docs
@@ -407,7 +410,69 @@ See TOKEN-SECRET")
 This verifies the request and makes sure it uses a valid access token.
 Returns T on success.
 
-Signals a PARAMETER-ERROR or VERIFICATION-ERROR on an invalid request."))
+Signals a PARAMETER-ERROR or VERIFICATION-ERROR on an invalid request.")
+
+  (type session
+    "Session container to represent a connection with a consumer.
+
+See TOKEN
+See TOKEN-SECRET
+See VERIFIER
+See CALLBACK
+See KEY
+See ACCESS")
+
+  (function verifier
+    "Accessor to the verifier token that the consumer has to provide to exchange the request token for an access token.
+
+See SESSION")
+
+  (function access
+    "Accessor to what kind of access the session has. Should initially be :request, and is set to :access once the handshake has completed.
+
+See SESSION")
+
+  (type application
+    "Container for an OAuth application that provides consumers a means to connect to the provider.
+
+See KEY
+See SECRET
+See NAME")
+
+  (function name
+    "Accessor to the name of the application.
+
+See APPLICATION")
+
+  (type server
+    "Mixin representing a server class.")
+
+  (type simple-server
+    "A very primitive and simple sample server implementation that stores everything in mere hash tables.
+
+Do not use this server for your production provider. You should implement
+one yourself the provides proper persistence and expiration of the providers,
+sessions, and nonces.
+
+See SERVER
+See APPLICATIONS
+See SESSIONS
+See NONCES")
+
+  (function applications
+    "Accessor to the hash table of key -> application in the server.
+
+See SIMPLE-SERVER")
+
+  (function sessions
+    "Accessor to the hash table of token -> session in the server.
+
+See SIMPLE-SERVER")
+
+  (function nonces
+    "Accessor to the hash table of timestamp -> nonce-list in the server.
+
+See SIMPLE-SERVER"))
 
 ;; toolkit.lisp
 (docs:define-docs

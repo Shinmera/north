@@ -86,7 +86,10 @@
    #:secret
    #:name
    #:server
-   #:simple-server)
+   #:simple-server
+   #:applications
+   #:sessions
+   #:nonces)
   ;; toolkit.lisp
   (:export
    #:*external-format*

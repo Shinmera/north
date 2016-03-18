@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8"/>
+    <title>NORTH</title>
+    <style type="text/css">
+      html{font-family: serif;}
+      code a{text-decoration: none;}
+      h1{display: inline-block; margin-bottom: 0;}
+      code{font-family: monospace;}
+      h4{display: inline-block; margin: 0; padding: 0;}
+      #symbol-index ul{list-style: none;}
+      .package li{margin-bottom: 20px;}
+      .package pre{margin: 0 0 0 10px; white-space: pre-wrap;}
+      .package .nicknames{font-weight: normal;}
+      table{margin: 20px;}
+      td{padding-bottom: 10px;}
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>north</h1>
+      <span class="version">1.0.0</span>
+      <p class="description">oAuth 1.0a server and client implementation, the successor to South.</p>
+    </header>
+    <div id="content">
+      <article>
+        
+          <span><h2>About North</h2>
+
+<p>North is a library that implements the OAuth 1.0a consumer and provider protocols. It allows you to connect to an OAuth provider and request its resources, or to build your own OAuth provider.</p>
+
+<h2>How To: Client</h2>
+
+<p>If you want to connect to an OAuth provider, simply instantiate a <code><a href="#NORTH:CLIENT">client</a></code> and pass it the required parameters. Following the Twitter requirements and using the tokens from <a href="http://shinmera.github.io/chirp/">Chirp</a>, we end up with this:</p>
+
+<pre><code>(<a href="http://l1sp.org/cl/defvar">defvar</a> *client*
+  (<a href="http://l1sp.org/cl/make-instance">make-instance</a>
+   'north:client
+   :key &quot;D1pMCK17gI10bQ6orBPS0w&quot;
+   :secret &quot;BfkvKNRRMoBPkEtDYAAOPW4s2G9U8Z7u3KAf0dBUA&quot;
+   :request-token-uri &quot;https://api.twitter.com/oauth/request_token&quot;
+   :authorize-uri &quot;https://api.twitter.com/oauth/authorize&quot;
+   :access-token-uri &quot;https://api.twitter.com/oauth/access_token&quot;))
+</code></pre>
+
+<p>Next we start the authentication process:</p>
+
+<pre><code>(<a href="#NORTH:INITIATE-AUTHENTICATION">north:initiate-authentication</a> *client*)
+</code></pre>
+
+<p>Visit the returned URL and enter the verification code:</p>
+
+<pre><code>(<a href="#NORTH:COMPLETE-AUTHENTICATION">north:complete-authentication</a> *client* &quot;.....&quot;)
+</code></pre>
+
+<p>And finally we can access some resources:</p>
+
+<pre><code>(ql:quickload :cl-json)
+(<a href="http://l1sp.org/cl/defmacro">defmacro</a> with-json-decoding (() &amp;body body)
+  `(<a href="http://l1sp.org/cl/let">let</a> ((drakma:*text-content-types* (<a href="http://l1sp.org/cl/list*">list*</a> '(&quot;application&quot; . &quot;json&quot;) drakma:*text-content-types*)))
+     (cl-json:decode-json-from-string
+      (<a href="http://l1sp.org/cl/progn">progn</a> ,@body))))
+
+(with-json-decoding ()
+  (<a href="#NORTH:MAKE-SIGNED-REQUEST">north:make-signed-request</a> *client* &quot;https://api.twitter.com/1.1/account/verify_credentials.json&quot; :get
+                             :params '((&quot;include_entities&quot; . &quot;true&quot;))))
+
+(with-json-decoding ()
+  (<a href="#NORTH:MAKE-SIGNED-REQUEST">north:make-signed-request</a> *client* &quot;https://api.twitter.com/1.1/statuses/update.json&quot; :post
+                             :params '((&quot;status&quot; . &quot;North and South, no matter where I look there's parens.&quot;))))
+</code></pre>
+
+<p>We can also post some data:</p>
+
+<pre><code>(with-json-decoding ()
+  (<a href="#NORTH:MAKE-SIGNED-DATA-REQUEST">north:make-signed-data-request</a> *client* &quot;https://api.twitter.com/1.1/statuses/update_with_media.json&quot;
+                                  `((&quot;media[]&quot; . #p&quot;~/sweet-bear.jpg&quot;))
+                                  :params '((&quot;status&quot; . &quot;Check out this sweet bear!&quot;))))
+</code></pre>
+
+<p>In order to keep the access token and secret so you can resume your session without repeatedly logging in every time, you can serialise the client with <code><a href="http://l1sp.org/cl/make-load-form">make-load-form</a></code>.</p>
+
+<h2>How To: Server</h2>
+
+<p>TBD</p>
+
+<h2>An Example Server / Client Setup</h2>
+
+<p>See the <a href="https://github.com/Shinmera/north/tree/master/example">north-example</a> system for a primitive, simple setup of a provider and consumer.</p>
+
+<h2>OAuth Overview</h2>
+
+<p>OAuth is supposed to provide a relatively convenient standardised way to authenticate a user against a service (provider), and then allow the application (consumer) to access resources on the user's behalf. Key to this are two parts, the signing process, and the actual authorisation process itself.</p>
+
+<h3>The Authorisation Process</h3>
+
+<p>Before an OAuth consumer can access any resources, it needs to obtain an access token. The path to this token happens in three distinct steps, during which several pieces of information need to be remembered and modified on both the consumer and provider's sides.</p>
+
+<h4>Step 0: Generating an Application</h4>
+
+<p>Unfortunately this is already where things begin to become awkward with the OAuth specification. The spec conflates what is essentially an application with the consumer. In order to improve clarity, North makes a distinction here. An application is a server-side instance that identifies a range of consumers. A consumer is a specific instance of a program that would like to connect to a provider through an application.</p>
+
+<p>Whatever the case may be, before you can connect at all, you need to have access to an application key and secret. These two pieces are vital in the signing and requesting process. In North, this can be done through <code><a href="#NORTH:MAKE-APPLICATION">make-application</a></code>. Once you have an application, you can get its <code><a href="#NORTH:KEY">key</a></code> and <code><a href="#NORTH:SECRET">secret</a></code>.</p>
+
+<h4>Step 1: Requesting a Request Token</h4>
+
+<p>Now we actually start exchanging things with the provider as a consumer. To do this we send a signed request to the server's request-token endpoint. The request is signed using our application's secret, and we pass along the application's key as an OAuth parameter. Additionally we must give the provider a callback parameter that tells it what to do in the next step.</p>
+
+<p>The provider then verifies our signature, and if it thinks everything is proper, then it sends back a body containing a request token and request secret. From here on out our requests will need to contain the token as an OAuth parameter and be signed with the request secret along with the application secret.</p>
+
+<h4>Step 2: The User Authorises the Consumer</h4>
+
+<p>The next step has to be done by the user themselves, such that granting access is always done through explicit consent. To do this, the consumer constructs an URL to the provider's authorize endpoint with the request token added as a GET parameter. The user then has to visit this URL.</p>
+
+<p>Once on the page, the user should be confronted with a confirmation dialog, potentially also displaying all the things the consumer could get access to, if authorised. If the user accepts, the server generates a verifier token, which is then passed back to the consumer. This happens either automatically through a redirect, if the callback was a valid URL, or through the user manually, if the callback was the string &quot;oob&quot;. In the latter case, the verifier is displayed to the user on the website, and they have to copy it into the consumer.</p>
+
+<h4>Step 3: Requesting an Access Token</h4>
+
+<p>The final step is to exchange the request token with an access token, using the verifier that was obtained in the previous section. To do this, a fully signed request is made to the provider's access-token endpoint, which verifies the request and verifier, rehashes the consumer's token, and upgrades its access. It then returns the newly generated access token and secret that will henceforth be used to sign requests.</p>
+
+<h4>Step 4: Accessing Resources</h4>
+
+<p>Now that we have an access token, we can start requesting whatever resources we were permitted to. A provider may for example offer several kinds of access tokens with varying ranges of permissions. The request endpoints are of course the provider's own decision. The only thing that OAuth specifies henceforth is that the request must be fully signed.</p>
+
+<h3>Error Handling</h3>
+
+<p>Now, you may notice in all this that there's no specification on how to handle errors. And you're right. The only thing OAuth says is that missing/duplicate parameters must result in an HTTP return code of 400, and an invalid signature must result in a return code of 401. Everything else, what specifically went wrong, how to fix it, or any other thing that might be useful is unspecified. Some providers do give some error information, but the format in which the error is presented is up to them.</p>
+
+<p>As such, North makes no assumptions whatsoever about how to parse the body contents on an error. You will, unfortunately, have to deal with that on your own. To do this, handle the <code><a href="#NORTH:REQUEST-FAILED">request-failed</a></code> error and parse the <code><a href="#NORTH:BODY">body</a></code> of it.</p>
+
+<h3>The Signing Process</h3>
+
+<p>Now comes the hard part. The actual signing process is unbelievably convoluted and incredibly easy to mess up. Let's start simple.</p>
+
+<h4>The Authorization Header</h4>
+
+<p>A signed request must contain an &quot;Authorization&quot; header, which must begin with the string &quot;OAuth &quot;. Following it are a series of oauth parameters. Each key/value pair is separated by a comma and a space, each key is separated from the value by an equals sign, and each value is surrounded by double-quotes. Each key and value must also be url-encoded. Keep in mind here that in order to transmit the request, this header is again url-encoded.</p>
+
+<h4>The OAuth Parameters</h4>
+
+<p>For each request a certain set of OAuth parameters must be present. Every request must have the <code>oauth_consumer_key</code>, <code>oauth_signature_method</code>, <code>oauth_signature</code>, <code>oauth_timestamp</code>, and <code>oauth_nonce</code>. Additional parameters are <code>oauth_callback</code>, <code>oauth_token</code>, and <code>oauth_verifier</code>, and whatever else the provider may want to require. These parameters must be ordered lexicographically by their keys and in case of duplicate keys by their values.</p>
+
+<p>The <code>oauth_consumer_key</code> is the application key that we obtained in step 0. The <code>oauth_timestamp</code> must be an integer representing the unix-time when the request was formed. The <code>oauth_nonce</code> must be a unique string for each timestamp, but must not necessarily be globally unique.</p>
+
+<h4>The OAuth Signature</h4>
+
+<p>The final piece is the signature itself. The signature is created using a signing method (<code>oauth_signature_method</code>) over a signature base string, using a signature key.</p>
+
+<p>The signature key is simply the application secret, appended with an &amp;, appended with the token secret, if we have one.</p>
+
+<p>The signature base string is constructed by the uppercase representation of the request method (POST/GET) followed by an &amp;, followed by the url-encoded, normalised url, followed by an &amp;, followed by the url-encoded, concatenated parameters. </p>
+
+<h5>Normalising the URL</h5>
+
+<p>The URL must be normalised such that the schema is in all lowercase and the port is omitted if it is 80 and the schema is http, or if it is 443 and the schema is https.</p>
+
+<h5>Concatenating the Parameters</h5>
+
+<p>The parameters here are all of the parameters. Namely the oauth parameters (except the signature itself), the get parameters, and the post parameters. The parameters must again be sorted as before, but now they are concatenated differently. Namely each pair is separated by an ampersand, the key is separated from the value by an equals sign, and both keys and values must be url-encoded. Note that unlike before, values must not be surrounded by double-quotes.</p>
+
+<h5>Signing the Token</h5>
+
+<p>Potentially any signature method you might want is supported. The provider can request whatever they want. North implements the plaintext, hmac-sha1, and cmac-aes methods suggested by the spec. See the relevant hashing methods for information on how they work.</p>
+
+<h3>A Reminder, Just For Fun</h3>
+
+<p>The request is sent, url-encoded. The authorization header has url-encoded parameter values. One of those is the signature, which was constructed from a base string that has an url-encoded url part, and an url-encoded parameter part. The parameter part has url-encoded parameter values. Url-encode!</p>
+</span>
+        
+      </article>
+      <article>
+        
+          <h2>Copyright</h2>
+          <span>north</span> is licensed under the <span><a href="https://tldrlegal.com/search?q=Artistic">Artistic</a></span> license.
+          
+            © <span>Nicolas Hafner &lt;shinmera@tymoon.eu&gt;</span>
+            .
+          
+          This library can be obtained on <a href="https://github.com/Shinmera/north">https://github.com/Shinmera/north</a>.
+        
+      </article>
+      
+        <article id="symbol-index">
+          <h2>Package Index</h2>
+          <ul><li class="package">
+              <h3>
+                <a name="NORTH" href="#NORTH">NORTH</a>
+                <span class="nicknames">(ORG.SHIRAKUMO.NORTH)</span>
+              </h3>
+              <ul><li>
+                  <a name="NORTH:*EXTERNAL-FORMAT*"/>
+                  <article>
+                    <header class="special">
+                      <span class="type">special</span>
+                      <code>
+                        <h4><a href="#NORTH:*EXTERNAL-FORMAT*" class="name">*EXTERNAL-FORMAT*</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">The external format to use to url-en/decode and execute requests.
+Defaults to :UTF-8</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:APPLICATION"/>
+                  <article>
+                    <header class="class">
+                      <span class="type">class</span>
+                      <code>
+                        <h4><a href="#NORTH:APPLICATION" class="name">APPLICATION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Container for an OAuth application that provides consumers a means to connect to the provider.
+
+See KEY
+See SECRET
+See NAME</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:CLIENT"/>
+                  <article>
+                    <header class="class">
+                      <span class="type">class</span>
+                      <code>
+                        <h4><a href="#NORTH:CLIENT" class="name">CLIENT</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An oAuth client class to encapsulate a single connection to a provider.
+
+Contains all the necessary information and state to manage the connection.
+You may serialise this object into a reloadable form using MAKE-LOAD-FORM.
+Unless the provider expires access tokens or the token is revoked for some reason
+or another, the authentication process for a client has to be done only once.
+
+See KEY
+See SECRET
+See TOKEN
+See TOKEN-SECRET
+See CALLBACK
+See REQUEST-TOKEN-URI
+See AUTHORIZE-URI
+See ACCESS-TOKEN-URI
+See VERIFY-URI
+See INITIATE-AUTHENTICATION
+See COMPLETE-AUTHENTICATION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:REQUEST"/>
+                  <article>
+                    <header class="class">
+                      <span class="type">class</span>
+                      <code>
+                        <h4><a href="#NORTH:REQUEST" class="name">REQUEST</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Container class to represent an HTTP request.
+
+Upon initialisation a few default oauth parameters are set, if not given already:
+  oauth_nonce             Set to (make-nonce)
+  oauth_signature_method  Set to &quot;HMAC-SHA1&quot;
+  oauth_timestamp         Set to (make-timestamp)
+  oauth_version           Set to &quot;1.0&quot;
+Additionally, if the headers given include an Authorization header, then the
+oauth parameters are overridden by the results of DESTRUCTURE-OAUTH-HEADER.
+
+See HTTP-METHOD
+See URL
+See PARAMETERS
+See HEADERS
+See OAUTH
+See DESTRUCTURE-OAUTH-HEADER</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:SERVER"/>
+                  <article>
+                    <header class="class">
+                      <span class="type">class</span>
+                      <code>
+                        <h4><a href="#NORTH:SERVER" class="name">SERVER</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Mixin representing a server class.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:SESSION"/>
+                  <article>
+                    <header class="class">
+                      <span class="type">class</span>
+                      <code>
+                        <h4><a href="#NORTH:SESSION" class="name">SESSION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Session container to represent a connection with a consumer.
+
+See TOKEN
+See TOKEN-SECRET
+See VERIFIER
+See CALLBACK
+See KEY
+See ACCESS</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:SIMPLE-SERVER"/>
+                  <article>
+                    <header class="class">
+                      <span class="type">class</span>
+                      <code>
+                        <h4><a href="#NORTH:SIMPLE-SERVER" class="name">SIMPLE-SERVER</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">A very primitive and simple sample server implementation that stores everything in mere hash tables.
+
+Do not use this server for your production provider. You should implement
+one yourself the provides proper persistence and expiration of the providers,
+sessions, and nonces.
+
+See SERVER
+See APPLICATIONS
+See SESSIONS
+See NONCES</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:BAD-VERSION"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:BAD-VERSION" class="name">BAD-VERSION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An error signalled when the oAuth request specifies a bad version field.
+
+See PARAMETER-ERROR</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:CALLBACK-UNCONFIRMED"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:CALLBACK-UNCONFIRMED" class="name">CALLBACK-UNCONFIRMED</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An error signalled when the provider returns a non-&quot;true&quot; value for the oauth_callback_confirmed key.
+
+See CLIENT-ERROR</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:CLIENT-ERROR"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:CLIENT-ERROR" class="name">CLIENT-ERROR</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An error signalled when the oAuth client encounters a problem.
+
+See NORTH-CONDITION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:INVALID-APPLICATION"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:INVALID-APPLICATION" class="name">INVALID-APPLICATION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An error signalled when the oauth_consumer_key of the request is invalid or unknown.
+
+See VERIFICATION-ERROR</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:INVALID-SIGNATURE"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:INVALID-SIGNATURE" class="name">INVALID-SIGNATURE</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An error signalled when the oAuth signature cannot be verified. 
+This is most likely due to a bad signing procedure on the client's behalf, or a 
+disagreement about the tokens and secrets used in the signing process.
+
+See VERIFICATION-ERROR</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:INVALID-TOKEN"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:INVALID-TOKEN" class="name">INVALID-TOKEN</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An error signalled when the token of the request is invalid or unknown.
+
+See VERIFICATION-ERROR</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:INVALID-VERIFIER"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:INVALID-VERIFIER" class="name">INVALID-VERIFIER</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An error signalled when the verifier of the request is invalid for the associated request token.
+
+See VERIFICATION-ERROR</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:NONCE-REUSED"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:NONCE-REUSED" class="name">NONCE-REUSED</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An error signalled when a nonce is used twice within the same timestamp.
+
+See VERIFICATION-ERROR</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:NORTH-CONDITION"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:NORTH-CONDITION" class="name">NORTH-CONDITION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Base condition class for conditions in the North system.
+
+See REQUEST</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:PARAMETER-ERROR"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:PARAMETER-ERROR" class="name">PARAMETER-ERROR</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An error signalled when the parameters given to the provider are incomplete or badly specified.
+Should end up in an HTTP 400 return code.
+
+See NORTH-CONDITION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:PARAMETERS-MISSING"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:PARAMETERS-MISSING" class="name">PARAMETERS-MISSING</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An error signalled when the oAuth request does not include all the required oAuth parameters.
+
+See PARAMETERS
+See PARAMETER-ERROR</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:REQUEST-FAILED"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:REQUEST-FAILED" class="name">REQUEST-FAILED</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An error signalled when a client's request returned with a non-200 status code.
+
+See BODY
+See STATUS-CODE
+See HEADERS
+See CLIENT-ERROR</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:VERIFICATION-ERROR"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:VERIFICATION-ERROR" class="name">VERIFICATION-ERROR</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An error signalled when the parameters given to the provider fail the verification test.
+Should end up in an HTTP 401 return code.
+
+See NORTH-CONDITION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:VERIFIER-TAKEN"/>
+                  <article>
+                    <header class="condition">
+                      <span class="type">condition</span>
+                      <code>
+                        <h4><a href="#NORTH:VERIFIER-TAKEN" class="name">VERIFIER-TAKEN</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">An error signalled when a verifier token for a request is re-used or the authorization step is repeated for the same request token.
+
+See VERIFICATION-ERROR</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:ACCESS"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:ACCESS" class="name">ACCESS</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accessor to what kind of access the session has. Should initially be :request, and is set to :access once the handshake has completed.
+
+See SESSION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:ACCESS-TOKEN-URI"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:ACCESS-TOKEN-URI" class="name">ACCESS-TOKEN-URI</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the oauth/access-token uri, the third endpoint for the oAuth process.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:APPLICATIONS"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:APPLICATIONS" class="name">APPLICATIONS</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accessor to the hash table of key -&gt; application in the server.
+
+See SIMPLE-SERVER</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:AUTHORIZE-URI"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:AUTHORIZE-URI" class="name">AUTHORIZE-URI</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the oauth/authorize uri, the second endpoint for the oAuth process.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:CALLBACK"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:CALLBACK" class="name">CALLBACK</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the callback to which the oauth/authorize step should redirect.
+If it should not redirect, the callback must be exactly the string &quot;oob&quot;.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:HEADERS"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:HEADERS" class="name">HEADERS</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(CONDITION)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the HTTP headers of the request.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:HTTP-METHOD"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:HTTP-METHOD" class="name">HTTP-METHOD</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the HTTP-METHOD (GET/POST) of the request.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:KEY"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:KEY" class="name">KEY</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the application key.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:NAME"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:NAME" class="name">NAME</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accessor to the name of the application.
+
+See APPLICATION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:NONCES"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:NONCES" class="name">NONCES</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accessor to the hash table of timestamp -&gt; nonce-list in the server.
+
+See SIMPLE-SERVER</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:OAUTH"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:OAUTH" class="name">OAUTH</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the pure oauth parameters of the request.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:PARAMETERS"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:PARAMETERS" class="name">PARAMETERS</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(CONDITION)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the parameters of the request.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:REQUEST-TOKEN-URI"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:REQUEST-TOKEN-URI" class="name">REQUEST-TOKEN-URI</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the oauth/request-token uri, the first endpoint for the oAuth process.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:SECRET"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:SECRET" class="name">SECRET</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the application secret.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:SESSIONS"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:SESSIONS" class="name">SESSIONS</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accessor to the hash table of token -&gt; session in the server.
+
+See SIMPLE-SERVER</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:TOKEN"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:TOKEN" class="name">TOKEN</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the current (access or request) token.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:TOKEN-SECRET"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:TOKEN-SECRET" class="name">TOKEN-SECRET</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the current (access or request) token secret.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:URL"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:URL" class="name">URL</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the URL of the request.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:VERIFIER"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:VERIFIER" class="name">VERIFIER</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accessor to the verifier token that the consumer has to provide to exchange the request token for an access token.
+
+See SESSION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:VERIFY-URI"/>
+                  <article>
+                    <header class="accessor">
+                      <span class="type">accessor</span>
+                      <code>
+                        <h4><a href="#NORTH:VERIFY-URI" class="name">VERIFY-URI</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(OBJECT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Accesses the oauth/verify uri, an optional endpoint to test whether the process completed successfully.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:ALIST-&gt;OAUTH-RESPONSE"/>
+                  <article>
+                    <header class="function">
+                      <span class="type">function</span>
+                      <code>
+                        <h4><a href="#NORTH:ALIST-&gt;OAUTH-RESPONSE" class="name">ALIST-&gt;OAUTH-RESPONSE</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(ALIST)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Concatenates an alist into an oauth response body.
+
+See CONCAT-PARAMS.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:CONCAT-PARAMS"/>
+                  <article>
+                    <header class="function">
+                      <span class="type">function</span>
+                      <code>
+                        <h4><a href="#NORTH:CONCAT-PARAMS" class="name">CONCAT-PARAMS</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(PARAMS &amp;KEY QUOTE (DELIM &quot;&amp;&quot;))</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Concatenate the given alist into a single parameter string.
+
+This intermits an equal sign between key and value, and DELIM between each pair.
+If QUOTE is non-NIL, the values are surrounded by #\&quot;.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:CREATE-SIGNATURE"/>
+                  <article>
+                    <header class="function">
+                      <span class="type">function</span>
+                      <code>
+                        <h4><a href="#NORTH:CREATE-SIGNATURE" class="name">CREATE-SIGNATURE</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(CONSUMER-SECRET TOKEN-SECRET METHOD URL OAUTH-PARAMS &amp;OPTIONAL PARAMS)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Create an oAuth signature for the given parameters.
+
+This does not include the oauth_signature parameters if it is passed in OAUTH-PARAMS.
+Calls SIGN using the oauth_signature_method oauth param, a normalized token from the
+OAUTH-PARAMS and GET-PARAMS, and the given CONSUMER-SECRET and TOKEN-SECRET.
+
+See SIGN
+See NORMALIZE-TOKEN</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:DESTRUCTURE-OAUTH-HEADER"/>
+                  <article>
+                    <header class="function">
+                      <span class="type">function</span>
+                      <code>
+                        <h4><a href="#NORTH:DESTRUCTURE-OAUTH-HEADER" class="name">DESTRUCTURE-OAUTH-HEADER</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(HEADER)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Destructures an Authorization header into its oauth parameters.
+
+Returns an alist of all the parameters with their associated values.
+If the header is malformed, an error is signalled.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:MAKE-NONCE"/>
+                  <article>
+                    <header class="function">
+                      <span class="type">function</span>
+                      <code>
+                        <h4><a href="#NORTH:MAKE-NONCE" class="name">MAKE-NONCE</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Creates a default nonce by turning a V4 UUID into a string.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:MAKE-REQUEST"/>
+                  <article>
+                    <header class="function">
+                      <span class="type">function</span>
+                      <code>
+                        <h4><a href="#NORTH:MAKE-REQUEST" class="name">MAKE-REQUEST</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(URL METHOD &amp;KEY PARAMS HEADERS OAUTH)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Shorthand function to construct a request object.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:MAKE-TIMESTAMP"/>
+                  <article>
+                    <header class="function">
+                      <span class="type">function</span>
+                      <code>
+                        <h4><a href="#NORTH:MAKE-TIMESTAMP" class="name">MAKE-TIMESTAMP</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">()</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Creates a default timestamp by turning a unix timestamp into a string.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:NORMALIZE-URL"/>
+                  <article>
+                    <header class="function">
+                      <span class="type">function</span>
+                      <code>
+                        <h4><a href="#NORTH:NORMALIZE-URL" class="name">NORMALIZE-URL</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(URL)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Normalises the URL to avoid ambiguity. 
+
+In specific, it downcases the scheme, removes leading slashes from the path, and
+omits the 80 port if the scheme is HTTP, and the 443 port if the scheme is HTTPS.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:OAUTH-RESPONSE-&gt;ALIST"/>
+                  <article>
+                    <header class="function">
+                      <span class="type">function</span>
+                      <code>
+                        <h4><a href="#NORTH:OAUTH-RESPONSE-&gt;ALIST" class="name">OAUTH-RESPONSE-&gt;ALIST</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(BODY)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Splits the body into an alist of keys and values.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:PGET"/>
+                  <article>
+                    <header class="function">
+                      <span class="type">function</span>
+                      <code>
+                        <h4><a href="#NORTH:PGET" class="name">PGET</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(KEY ALIST)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Easy accessor for alists. 
+
+Checks keys STRING-EQUALly and returns the value directly, if found.
+SETF-able. If a key is set that does not occur in the alist, a new
+entry is PUSHed, otherwise the existing one is modified. The key is
+coerced using ALIST-KEY
+
+See ALIST-KEY</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:SORT-PARAMS"/>
+                  <article>
+                    <header class="function">
+                      <span class="type">function</span>
+                      <code>
+                        <h4><a href="#NORTH:SORT-PARAMS" class="name">SORT-PARAMS</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(PARAMS)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Creates a fresh list in which the parameters are sorted.
+
+See PARAM&lt;</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:URL-DECODE"/>
+                  <article>
+                    <header class="function">
+                      <span class="type">function</span>
+                      <code>
+                        <h4><a href="#NORTH:URL-DECODE" class="name">URL-DECODE</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(STRING &amp;OPTIONAL (EXTERNAL-FORMAT *EXTERNAL-FORMAT*))</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Decode the string into plain text format.
+
+See *EXTERNAL-FORMAT*</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:URL-ENCODE"/>
+                  <article>
+                    <header class="function">
+                      <span class="type">function</span>
+                      <code>
+                        <h4><a href="#NORTH:URL-ENCODE" class="name">URL-ENCODE</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(THING &amp;OPTIONAL (EXTERNAL-FORMAT *EXTERNAL-FORMAT*))</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Encode the string into url-encoded format as required by the oAuth spec.
+
+Namely all characters except [0-9], [a-z], [A-Z], and [-._~] are encoded.
+
+See *EXTERNAL-FORMAT*</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:APPLICATION"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:APPLICATION" class="name">APPLICATION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(SERVER APPLICATION-KEY)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Returns the application object associated with the given key on the server, if any.
+
+See SERVER
+See APPLICATION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:BODY"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:BODY" class="name">BODY</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(CONDITION)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">The returned http body of the failed request. This may be an octet-vector if the content type is not known to drakma.
+
+See REQUEST-FAILED
+See DRAKMA:*TEXT-CONTENT-TYPES*</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:CALL"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:CALL" class="name">CALL</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(REQUEST &amp;REST DRAKMA-ARGS)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Executes the given request object.
+
+If the http status code returned is 200, the response body is returned.
+Otherwise, an error of type REQUEST-FAILED is signalled.
+
+See REQUEST
+See REQUEST-FAILED</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:CALL-SIGNED"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:CALL-SIGNED" class="name">CALL-SIGNED</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(REQUEST CONSUMER-SECRET &amp;OPTIONAL TOKEN-SECRET &amp;REST DRAKMA-ARGS)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Execute the given request object after signing it.
+
+See REQUEST
+See CALL
+See MAKE-AUTHORIZED
+See MAKE-SIGNED</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:COMPLETE-AUTHENTICATION"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:COMPLETE-AUTHENTICATION" class="name">COMPLETE-AUTHENTICATION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(CLIENT VERIFIER &amp;OPTIONAL TOKEN)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Complete the authentication process for the client.
+
+This performs an oauth/access-token request.
+This operation modifies the TOKEN and TOKEN-SECRET fields of the client.
+When the client has a VERIFY-URI given, an additional oauth/verify request is made
+to test whether the full process was complete.
+
+See CLIENT
+See MAKE-SIGNED-REQUEST</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:FIND-NONCE"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:FIND-NONCE" class="name">FIND-NONCE</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(SERVER TIMESTAMP NONCE)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">If the given nonce was used before on the given timestamp, return non-NIL.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:INITIATE-AUTHENTICATION"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:INITIATE-AUTHENTICATION" class="name">INITIATE-AUTHENTICATION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(CLIENT)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Start the authentication process for the client.
+
+This performs an oauth/request-token request and constructs the proper 
+oauth/authorize URL for the user to visit. This address is returned.
+If the provider did not confirm the callback, an error of type CALLBACK-UNCONFIRMED
+is signalled.
+This operation modifies the TOKEN and TOKEN-SECRET fields of the client.
+
+See CLIENT
+See MAKE-SIGNED-REQUEST</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:MAKE-APPLICATION"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:MAKE-APPLICATION" class="name">MAKE-APPLICATION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(SERVER &amp;KEY NAME &amp;ALLOW-OTHER-KEYS)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Creates and adds a new application object to the server.
+
+Additionally supported keyword arguments are used as initargs for the application
+instance. Which application class is used depends on the server.
+
+See SERVER
+See APPLICATION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:MAKE-AUTHORIZED"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:MAKE-AUTHORIZED" class="name">MAKE-AUTHORIZED</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(REQUEST)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Modifies the request to add the authorization header using the oauth parameters.
+
+If the oauth_signature parameter is missing, an error is signalled.
+Returns the request.
+
+See REQUEST</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:MAKE-SESSION"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:MAKE-SESSION" class="name">MAKE-SESSION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(SERVER APPLICATION CALLBACK &amp;KEY ACCESS &amp;ALLOW-OTHER-KEYS)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Creates and adds a new session object to the server.
+
+Additionally supported keyword arguments are used as initargs for the session
+instance. Which session class is used depends on the server.
+
+See SERVER
+See SESSION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:MAKE-SIGNED"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:MAKE-SIGNED" class="name">MAKE-SIGNED</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(REQUEST CONSUMER-SECRET &amp;OPTIONAL TOKEN-SECRET)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Modifies the request to add a signature to the oauth parameters.
+
+This will also modify the oauth parameters list to remove duplicates or empty values.
+Returns the request.
+
+See REQUEST
+See CREATE-SIGNATURE</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:MAKE-SIGNED-DATA-REQUEST"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:MAKE-SIGNED-DATA-REQUEST" class="name">MAKE-SIGNED-DATA-REQUEST</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(CLIENT URL DATA &amp;KEY PARAMS HEADERS OAUTH)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Construct and execute a signed request to send data payloads.
+
+Each data value can be either a pathname or an octet-vector.
+Returns the result of the request execution as the first value and the constructed
+request object itself as the second.
+
+See CLIENT
+See REQUEST
+See CALL-SIGNED</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:MAKE-SIGNED-REQUEST"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:MAKE-SIGNED-REQUEST" class="name">MAKE-SIGNED-REQUEST</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(CLIENT URL METHOD &amp;KEY PARAMS HEADERS OAUTH)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Construct and execute a signed request for the given client.
+
+Returns the result of the request execution as the first value and the constructed
+request object itself as the second.
+
+See CLIENT
+See REQUEST
+See CALL-SIGNED</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:OAUTH/ACCESS-TOKEN"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:OAUTH/ACCESS-TOKEN" class="name">OAUTH/ACCESS-TOKEN</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(SERVER REQUEST)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Perform the oauth/access-token step of the process.
+
+This verifies the request and if successful, upgrades its access to full.
+It will also invalidate the session's verifier and rehash it.
+
+Returns two values:
+  TOKEN         --- The newly generated access token.
+  TOKEN-SECRET  --- The newly generated access token secret.
+
+Signals a PARAMETER-ERROR or VERIFICATION-ERROR on an invalid request.
+
+See SERVER
+See VERIFIER
+See REHASH-SESSION
+See TOKEN
+See TOKEN-SECRET</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:OAUTH/AUTHORIZE"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:OAUTH/AUTHORIZE" class="name">OAUTH/AUTHORIZE</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(SERVER REQUEST)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Perform the oauth/authorize step of the process.
+
+This verifies the request and returns three values:
+  TOKEN     --- The current request token.
+  VERIFIER  --- The (possibly newly generated) verifier for the next step.
+  URL       --- The callback URL to redirect to if the callback is not &quot;oob&quot;.
+                If the callback is indeed &quot;oob&quot;, NIL is returned for this.
+
+Signals a VERIFICATION-ERROR on an invalid request.
+
+See SERVER
+See TOKEN
+See VERIFIER
+See CALLBACK</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:OAUTH/REQUEST-TOKEN"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:OAUTH/REQUEST-TOKEN" class="name">OAUTH/REQUEST-TOKEN</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(SERVER REQUEST)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Perform the oauth/request-token step of the process.
+
+This creates a new session object and returns three values:
+  TOKEN               --- The newly generated request token.
+  TOKEN-SECRET        --- The newly generated request token secret.
+  CALLBACK-CONFIRMED  --- Whether the callback has been confirmed. According to
+                          the spec, this should always be T.
+
+Signals a PARAMETER-ERROR or VERIFICATION-ERROR on an invalid request.
+
+See SERVER
+See MAKE-SESSION
+See TOKEN
+See TOKEN-SECRET</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:OAUTH/VERIFY"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:OAUTH/VERIFY" class="name">OAUTH/VERIFY</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(SERVER REQUEST)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Standard endpoint to use on any protected resource.
+
+This verifies the request and makes sure it uses a valid access token.
+Returns T on success.
+
+Signals a PARAMETER-ERROR or VERIFICATION-ERROR on an invalid request.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:RECORD-NONCE"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:RECORD-NONCE" class="name">RECORD-NONCE</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(SERVER TIMESTAMP NONCE)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Remember the given nonce for the used timestamp.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:REHASH-SESSION"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:REHASH-SESSION" class="name">REHASH-SESSION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(SERVER SESSION)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Updates the session object to use a new token and token-secret.
+
+The server must ensure that the session will no longer be accessible through SESSION
+using the old token, but will be accessible through the newly generated token.
+
+See SERVER
+See SESSION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:REQUEST"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:REQUEST" class="name">REQUEST</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(CONDITION)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">The request object that the error occurred on.
+
+See NORTH-CONDITION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:REVOKE-APPLICATION"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:REVOKE-APPLICATION" class="name">REVOKE-APPLICATION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(SERVER APPLICATION-KEY)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Removes the given application from the server.
+
+The application must be no longer reachable through CONSUMER on the server and all
+sessions authorized through this application must be invalidated.
+
+See SERVER
+See APPLICATION
+See SESSION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:REVOKE-SESSION"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:REVOKE-SESSION" class="name">REVOKE-SESSION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(SERVER TOKEN)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Removes the given session from the server.
+
+The session must no longer be valid and any client trying to use its tokens to
+access any resource or perform any step of the oauth process must be rejected.
+
+See SERVER
+See SESSION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:SESSION"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:SESSION" class="name">SESSION</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(SERVER TOKEN)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Returns the session object associated with the given token on the server, if any.
+
+See SERVER
+See SESSION</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:SIGN"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:SIGN" class="name">SIGN</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(METHOD DATA CONSUMER-SECRET &amp;OPTIONAL TOKEN-SECRET)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Signs the given data using the specified method.
+
+By default, :PLAINTEXT, :HMAC-SHA1, and :CMAC-AES are supported.
+A string can be used for the method as well, but will be converted
+to a keyword first.</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:STATUS-CODE"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:STATUS-CODE" class="name">STATUS-CODE</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(CONDITION)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">The returned status code of the failed request.
+
+See REQUEST-FAILED</pre>
+                  </article>
+                </li><li>
+                  <a name="NORTH:VERIFY"/>
+                  <article>
+                    <header class="generic">
+                      <span class="type">generic</span>
+                      <code>
+                        <h4><a href="#NORTH:VERIFY" class="name">VERIFY</a></h4>
+                        <span class="qualifiers"></span>
+                        <span class="arguments">(REQUEST CONSUMER-SECRET &amp;OPTIONAL TOKEN-SECRET)</span>
+                      </code>
+                    </header>
+                    <pre class="docstring">Verifies whether the signature in the request is valid.
+To do this it destructures the Authorization header and uses it values to construct a 
+new signature. This is then compared against the oauth_signature value in the oauth
+alist.
+
+See REQUEST
+See DESTRUCTURE-OAUTH-HEADER
+See CREATE-SIGNATURE</pre>
+                  </article>
+                </li></ul>
+            </li></ul>
+        </article>
+      
+    </div>
+  </body>
+</html>
