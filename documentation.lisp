@@ -179,8 +179,8 @@ See VERIFICATION-ERROR")
 
 See VERIFICATION-ERROR")
 
-  (type invalid-consumer
-    "An error signalled when the consumer-key of the request is invalid or unknown.
+  (type invalid-application
+    "An error signalled when the oauth_consumer_key of the request is invalid or unknown.
 
 See VERIFICATION-ERROR")
 
@@ -281,14 +281,14 @@ See DESTRUCTURE-OAUTH-HEADER")
 
 ;; server.lisp
 (docs:define-docs
-  (function make-consumer
-    "Creates and adds a new consumer object to the server.
+  (function make-application
+    "Creates and adds a new application object to the server.
 
-Additionally supported keyword arguments are used as initargs for the consumer
-instance. Which consumer class is used depends on the server.
+Additionally supported keyword arguments are used as initargs for the application
+instance. Which application class is used depends on the server.
 
 See SERVER
-See CONSUMER")
+See APPLICATION")
   
   (function make-session
     "Creates and adds a new session object to the server.
@@ -299,11 +299,11 @@ instance. Which session class is used depends on the server.
 See SERVER
 See SESSION")
   
-  (function consumer
-    "Returns the consumer object associated with the given key on the server, if any.
+  (function application
+    "Returns the application object associated with the given key on the server, if any.
 
 See SERVER
-See CONSUMER")
+See APPLICATION")
   
   (function session
     "Returns the session object associated with the given token on the server, if any.
@@ -320,14 +320,14 @@ using the old token, but will be accessible through the newly generated token.
 See SERVER
 See SESSION")
   
-  (function revoke-consumer
-    "Removes the given consumer from the server.
+  (function revoke-application
+    "Removes the given application from the server.
 
-The consumer must be no longer reachable through CONSUMER on the server and all
-sessions authorized through this consumer must be invalidated.
+The application must be no longer reachable through CONSUMER on the server and all
+sessions authorized through this application must be invalidated.
 
 See SERVER
-See CONSUMER
+See APPLICATION
 See SESSION")
   
   (function revoke-session

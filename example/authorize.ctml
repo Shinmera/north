@@ -78,7 +78,7 @@
         </div>
       </c:when>
       <c:unless test="(or error verifier)">
-        Are you sure you want to allow <span class="consumer" lquery="(text (north:name consumer))">STUFF</span> access to your account?
+        Are you sure you want to allow <span class="application" lquery="(text (north:name application))">STUFF</span> access to your account?
         <form action="/oauth/authenticate" method="POST">
           <input type="submit" name="action" value="Allow" />
           <input type="submit" name="action" value="Deny" />

@@ -10,7 +10,7 @@
 (defvar *hunchentoot* (make-instance 'hunchentoot:easy-acceptor :port 4242))
 (defvar *authorize-page* (asdf:system-relative-pathname :north-example "authorize.ctml"))
 
-(defvar *consumer* (north:make-consumer *server* :name "North"))
+(defvar *application* (north:make-application *server* :name "North"))
 
 (defun start ()
   (hunchentoot:start *hunchentoot*))
@@ -68,12 +68,12 @@
   (with-error-handling ()
     (let* ((session (or (north:session *server* oauth_token)
                         (error 'north:invalid-token :request (make-request hunchentoot:*request*))))
-           (consumer (north:consumer *server* (north:key session))))
+           (application (north:application *server* (north:key session))))
       (setf (hunchentoot:content-type*) "application/xhtml+xml")
       (plump:serialize
        (clip:process *authorize-page*
                      :oauth_token oauth_token
-                     :consumer consumer
+                     :application application
                      :verifier verifier
                      :error error)
        NIL))))

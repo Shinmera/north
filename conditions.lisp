@@ -54,9 +54,9 @@
   (:report (lambda (c s) (format s "The token ~s is invalid."
                                  (pget :oauth_token (oauth (request c)))))))
 
-(define-condition invalid-consumer (verification-error)
+(define-condition invalid-application (verification-error)
   ()
-  (:report (lambda (c s) (format s "No consumer with key ~s."
+  (:report (lambda (c s) (format s "No application with key ~s."
                                  (pget :oauth_consumer_key (oauth (request c)))))))
 
 (define-condition request-failed (client-error)

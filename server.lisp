@@ -6,12 +6,12 @@
 
 (in-package #:org.shirakumo.north)
 
-(defgeneric make-consumer (server &key &allow-other-keys))
-(defgeneric make-session (server consumer callback &key access &allow-other-keys))
-(defgeneric consumer (server consumer-key))
+(defgeneric make-application (server &key &allow-other-keys))
+(defgeneric make-session (server application callback &key access &allow-other-keys))
+(defgeneric application (server application-key))
 (defgeneric session (server token))
 (defgeneric rehash-session (server session))
-(defgeneric revoke-consumer (server consumer-key))
+(defgeneric revoke-application (server application-key))
 (defgeneric revoke-session (server token))
 (defgeneric record-nonce (server timestamp nonce))
 (defgeneric find-nonce (server timestamp nonce))
@@ -35,7 +35,7 @@
    :key (error "KEY required.")
    :access :request))
 
-(defclass consumer ()
+(defclass application ()
   ((key :initarg :key :accessor key)
    (secret :initarg :secret :accessor secret)
    (name :initarg :name :accessor name))
@@ -47,14 +47,14 @@
 (defclass server ()
   ())
 
-(defmethod make-session ((server server) (consumer-key string) callback &rest args)
-  (apply #'make-session server (consumer server consumer-key) callback args))
+(defmethod make-session ((server server) (application-key string) callback &rest args)
+  (apply #'make-session server (application server application-key) callback args))
 
 (defmethod rehash-session ((server server) (string string))
   (rehash-session server (session server string)))
 
-(defmethod revoke-consumer ((server server) (string string))
-  (revoke-consumer server (consumer server string)))
+(defmethod revoke-application ((server server) (string string))
+  (revoke-application server (application server string)))
 
 (defmethod revoke-session ((server server) (string string))
   (revoke-session server (session server string)))
@@ -82,12 +82,12 @@
 
 (defun check-request (request server)
   (let ((session (session server (pget :oauth_token (oauth request))))
-        (consumer (consumer server (pget :oauth_consumer_key (oauth request)))))
+        (application (application server (pget :oauth_consumer_key (oauth request)))))
     (check-version request)
     (check-nonce request server)
-    (unless consumer
-      (error 'invalid-consumer :request request))
-    (unless (verify request (secret consumer) (when session (token-secret session)))
+    (unless application
+      (error 'invalid-application :request request))
+    (unless (verify request (secret application) (when session (token-secret session)))
       (error 'invalid-signature :request request))))
 
 (defun check-verifier (request server)
@@ -151,22 +151,22 @@
   T)
 
 (defclass simple-server (server)
-  ((consumers :initform (make-hash-table :test 'equal) :accessor consumers)
+  ((applications :initform (make-hash-table :test 'equal) :accessor applications)
    (sessions :initform (make-hash-table :test 'equal) :accessor sessions)
    (nonces :initform (make-hash-table :test 'eql) :accessor nonces)))
 
-(defmethod make-consumer ((server simple-server) &key name)
-  (let ((consumer (make-instance 'consumer :name name)))
-    (setf (gethash (key consumer) (consumers server)) consumer)
-    consumer))
+(defmethod make-application ((server simple-server) &key name)
+  (let ((application (make-instance 'application :name name)))
+    (setf (gethash (key application) (applications server)) application)
+    application))
 
-(defmethod make-session ((server simple-server) (consumer consumer) callback &key (access :request))
-  (let ((session (make-instance 'session :key (key consumer) :access access)))
+(defmethod make-session ((server simple-server) (application application) callback &key (access :request))
+  (let ((session (make-instance 'session :key (key application) :access access)))
     (setf (gethash (token session) (sessions server)) session)
     session))
 
-(defmethod consumer ((server simple-server) consumer-key)
-  (gethash consumer-key (consumers server)))
+(defmethod application ((server simple-server) application-key)
+  (gethash application-key (applications server)))
 
 (defmethod session ((server simple-server) token)
   (gethash token (sessions server)))
@@ -177,9 +177,9 @@
   (setf (token-secret session) (make-nonce))
   (setf (gethash (token session) (sessions server)) session))
 
-(defmethod revoke-consumer ((server simple-server) (consumer consumer))
-  (remhash (key consumer) (consumers server))
-  consumer)
+(defmethod revoke-application ((server simple-server) (application application))
+  (remhash (key application) (applications server))
+  application)
 
 (defmethod revoke-session ((server simple-server) (session session))
   (remhash (token session) (sessions server))

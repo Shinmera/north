@@ -40,7 +40,7 @@
    #:invalid-signature
    #:invalid-verifier
    #:invalid-token
-   #:invalid-consumer
+   #:invalid-application
    #:request-failed
    #:body
    #:status-code
@@ -61,12 +61,12 @@
    #:make-request)
   ;; server.lisp
   (:export
-   #:make-consumer
+   #:make-application
    #:make-session
-   #:consumer
+   #:application
    #:session
    #:rehash-session
-   #:revoke-consumer
+   #:revoke-application
    #:revoke-session
    #:record-nonce
    #:find-nonce
@@ -81,7 +81,7 @@
    #:callback
    #:key
    #:access
-   #:consumer
+   #:application
    #:key
    #:secret
    #:name
