@@ -6,33 +6,15 @@
 
 (in-package #:org.shirakumo.north)
 
-(defgeneric call (request &rest drakma-args))
-(defgeneric call-signed (request consumer-secret &optional token-secret &rest drakma-args))
+(defgeneric call (request &rest args))
+(defgeneric call-signed (request consumer-secret &optional token-secret &rest args))
 (defgeneric make-signed-request (client url method &key params headers oauth))
 (defgeneric make-signed-data-request (client url data &key params headers oauth))
 (defgeneric initiate-authentication (client))
 (defgeneric complete-authentication (client verifier &optional token))
 
-(defmethod call ((request request) &rest drakma-args)
-  (let ((drakma:*text-content-types*
-          (list* '("application" . "x-www-form-urlencoded")
-                 drakma:*text-content-types*)))
-    (multiple-value-bind (body status-code headers)
-        (apply #'drakma:http-request
-               (url request)
-               :method (http-method request)
-               :parameters (parameters request)
-               :additional-headers (headers request)
-               :url-encoder #'url-encode
-               :external-format-in *external-format*
-               :external-format-out *external-format*
-               drakma-args)
-      (unless (= status-code 200)
-        (error 'request-failed :request request :body body :status-code status-code :headers headers))
-      body)))
-
-(defmethod call-signed ((request request) consumer-secret &optional token-secret &rest drakma-args)
-  (apply #'call (make-authorized (make-signed request consumer-secret token-secret)) drakma-args))
+(defmethod call-signed ((request request) consumer-secret &optional token-secret &rest args)
+  (apply #'call (make-authorized (make-signed request consumer-secret token-secret)) args))
 
 (defclass client ()
   ((key :initarg :key :accessor key)

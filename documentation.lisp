@@ -12,7 +12,11 @@
     "Executes the given request object.
 
 If the http status code returned is 200, the response body is returned.
-Otherwise, an error of type REQUEST-FAILED is signalled.
+Otherwise, an error of type REQUEST-FAILED is signalled. Note that the
+allowed extra arguments are dependant on the backend being used. The
+one parameter that must be universally recognised is the :FORM-DATA
+boolean, designating whether the parameters contain form data to be sent
+over the request such as files.
 
 See REQUEST
 See REQUEST-FAILED")

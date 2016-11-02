@@ -1,6 +1,6 @@
 #|
  This file is a part of north
- (c) 2015 Shirakumo http://tymoon.eu (shinmera@tymoon.eu)
+ (c) 2016 Shirakumo http://tymoon.eu (shinmera@tymoon.eu)
  Author: Nicolas Hafner <shinmera@tymoon.eu>
 |#
 
@@ -10,8 +10,9 @@
   :license "Artistic"
   :author "Nicolas Hafner <shinmera@tymoon.eu>"
   :maintainer "Nicolas Hafner <shinmera@tymoon.eu>"
-  :description "oAuth 1.0a server and client implementation, the successor to South."
+  :description "Drakma backend for North"
   :homepage "https://github.com/Shinmera/north"
   :serial T
-  :components ()
-  :depends-on (:north-drakma))
+  :components ((:file "drakma"))
+  :depends-on (:drakma
+               :north-core))
