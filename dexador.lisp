@@ -25,11 +25,10 @@
                     param)))
 
 (defmethod call ((request request) &rest dexador-args &key form-data)
-  (let ((params (quri:make-uri :query (parameters->string (parameters request))))
+  (let ((params (unless form-data (quri:make-uri :query (parameters->string (parameters request)))))
         (uri (quri:uri (url request))))
-    (multiple-value-bind (body status-code headers uri)
-        (handler-bind ((dexador:http-request-failed (lambda (err)
-                                                      (invoke-restart 'dexador:ignore-and-continue))))
+    (multiple-value-bind (body status-code headers)
+        (handler-bind ((dexador:http-request-failed #'dexador:ignore-and-continue))
           (apply #'dexador:request
                  (if form-data uri (quri:merge-uris params uri))
                  :method (http-method request)
