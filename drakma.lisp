@@ -20,6 +20,6 @@
                :external-format-in *external-format*
                :external-format-out *external-format*
                drakma-args)
-      (unless (= status-code 200)
+      (unless (<= 200 status-code 299)
         (error 'request-failed :request request :body body :status-code status-code :headers headers))
       body)))

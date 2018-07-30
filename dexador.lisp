@@ -38,7 +38,7 @@
                  (loop for (key val) on dexador-args by #'cddr
                        unless (eql key :form-data) collect key
                        unless (eql key :form-data) collect val)))
-      (unless (= status-code 200)
+      (unless (<= 200 status-code 299)
         (error 'request-failed :request request :body body :status-code status-code :headers headers))
       body)))
 
