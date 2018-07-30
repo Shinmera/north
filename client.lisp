@@ -68,7 +68,9 @@
     (setf (parameters request)
           (append params
                   (loop for (k . v) in data
-                        collect (list k v :content-type "application/octet-stream"))))
+                        collect (destructuring-bind (file &key (content-type "application/octet-stream"))
+                                    (if (consp v) v (list v))
+                                  (list k file :content-type content-type)))))
     (values (call request :form-data T)
             request)))
 

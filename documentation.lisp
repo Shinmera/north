@@ -16,7 +16,11 @@ Otherwise, an error of type REQUEST-FAILED is signalled. Note that the
 allowed extra arguments are dependant on the backend being used. The
 one parameter that must be universally recognised is the :FORM-DATA
 boolean, designating whether the parameters contain form data to be sent
-over the request such as files.
+over the request such as files. Files in the parameter list should be
+either a cons of the parameter name and file as pathname or octet-vector,
+or a list of name, file, and optional keyword arguments. The only file
+keyword argument currently recognised is :CONTENT-TYPE, specifying the
+supplied content-type that should be submitted to the server for the file.
 
 See REQUEST
 See REQUEST-FAILED")
