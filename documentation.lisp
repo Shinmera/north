@@ -365,34 +365,38 @@ See SESSION")
   (function oauth/request-token
     "Perform the oauth/request-token step of the process.
 
-This creates a new session object and returns three values:
+This creates a new session object and returns four values:
   TOKEN               --- The newly generated request token.
   TOKEN-SECRET        --- The newly generated request token secret.
   CALLBACK-CONFIRMED  --- Whether the callback has been confirmed. According to
                           the spec, this should always be T.
+  SESSION             --- The newly created session object.
 
 Signals a PARAMETER-ERROR or VERIFICATION-ERROR on an invalid request.
 
 See SERVER
 See MAKE-SESSION
 See TOKEN
-See TOKEN-SECRET")
+See TOKEN-SECRET
+See SESSION")
   
   (function oauth/authorize
     "Perform the oauth/authorize step of the process.
 
-This verifies the request and returns three values:
+This verifies the request and returns four values:
   TOKEN     --- The current request token.
   VERIFIER  --- The (possibly newly generated) verifier for the next step.
   URL       --- The callback URL to redirect to if the callback is not \"oob\".
                 If the callback is indeed \"oob\", NIL is returned for this.
+  SESSION   --- The associated session object.
 
 Signals a VERIFICATION-ERROR on an invalid request.
 
 See SERVER
 See TOKEN
 See VERIFIER
-See CALLBACK")
+See CALLBACK
+See SESSION")
   
   (function oauth/access-token
     "Perform the oauth/access-token step of the process.
@@ -400,9 +404,10 @@ See CALLBACK")
 This verifies the request and if successful, upgrades its access to full.
 It will also invalidate the session's verifier and rehash it.
 
-Returns two values:
+Returns three values:
   TOKEN         --- The newly generated access token.
   TOKEN-SECRET  --- The newly generated access token secret.
+  SESSION       --- The associated session object.
 
 Signals a PARAMETER-ERROR or VERIFICATION-ERROR on an invalid request.
 
@@ -410,13 +415,17 @@ See SERVER
 See VERIFIER
 See REHASH-SESSION
 See TOKEN
-See TOKEN-SECRET")
+See TOKEN-SECRET
+See SESSION")
   
   (function oauth/verify
     "Standard endpoint to use on any protected resource.
 
 This verifies the request and makes sure it uses a valid access token.
-Returns T on success.
+
+Returns two values:
+  SESSION      --- The associated session object.
+  APPLICATION  --- The associated application object.
 
 Signals a PARAMETER-ERROR or VERIFICATION-ERROR on an invalid request.")
 

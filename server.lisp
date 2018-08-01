@@ -80,27 +80,30 @@
     (unless (or (not version) (string= "1.0" version))
       (error 'bad-version :request request))))
 
-(defun check-request (request server)
-  (let ((session (session server (pget :oauth_token (oauth request))))
-        (application (application server (pget :oauth_consumer_key (oauth request)))))
+(defun check-request (request server &key session application)
+  (let ((session (or session (session server (pget :oauth_token (oauth request)))))
+        (application (or application (application server (pget :oauth_consumer_key (oauth request))))))
     (check-version request)
     (check-nonce request server)
     (unless application
       (error 'invalid-application :request request))
     (unless (verify request (secret application) (when session (token-secret session)))
-      (error 'invalid-signature :request request))))
+      (error 'invalid-signature :request request))
+    (values session application)))
 
-(defun check-verifier (request server)
+(defun check-verifier (request server &key session)
   (let ((verifier (pget :oauth_verifier (oauth request)))
-        (session (session server (pget :oauth_token (oauth request)))))
+        (session (or session (session server (pget :oauth_token (oauth request))))))
     (unless (and session (string= verifier (verifier session)))
-      (error 'invalid-verifier :request request))))
+      (error 'invalid-verifier :request request))
+    session))
 
-(defun check-token (request server)
-  (let ((session (session server (or (pget :oauth_token (oauth request))
-                                     (pget :oauth_token (parameters request))))))
+(defun check-token (request server &key session)
+  (let ((session (or session (session server (or (pget :oauth_token (oauth request))
+                                                 (pget :oauth_token (parameters request)))))))
     (unless (and session (token session))
-      (error 'invalid-token :request request))))
+      (error 'invalid-token :request request))
+    session))
 
 (defmethod oauth/request-token ((server server) (request request))
   (check-parameters-present request
@@ -111,7 +114,7 @@
                                (pget :oauth_consumer_key (oauth request))
                                (pget :oauth_callback (oauth request))
                                :access :request)))
-    (values (token session) (token-secret session) T)))
+    (values (token session) (token-secret session) T session)))
 
 (defmethod oauth/authorize ((server server) (request request))
   (check-token request server)
@@ -121,32 +124,34 @@
          (callback (callback session)))
     (unless verifier
       (error 'verifier-taken :request request))
-    (values token verifier
+    (values token
+            verifier
             (when (string/= callback "oob")
               (format NIL "~a?oauth_token=~a&oauth_verifier=~a"
-                      callback (url-encode token) (url-encode verifier))))))
+                      callback (url-encode token) (url-encode verifier)))
+            session)))
 
 (defmethod oauth/access-token ((server server) (request request))
   (check-parameters-present request
     :oauth_consumer_key :oauth_signature_method :oauth_signature
     :oauth_timestamp :oauth_nonce :oauth_token :oauth_verifier)
-  (check-token request server)
-  (check-verifier request server)
-  (check-request request server)
-  (let ((session (session server (pget :oauth_token (oauth request)))))
+  (let ((session (check-token request server)))
+    (check-verifier request server :session session)
+    (check-request request server :session session)
     ;; Invalidate verifier
     (setf (verifier session) NIL)
     (setf (access session) :access)
     (rehash-session server session)
-    (values (token session) (token-secret session))))
+    (values (token session)
+            (token-secret session)
+            session)))
 
 (defmethod oauth/verify ((server server) (request request))
   (check-parameters-present request
     :oauth_consumer_key :oauth_signature_method :oauth_signature
     :oauth_timestamp :oauth_nonce :oauth_token)
-  (check-token request server)
-  (check-request request server)
-  T)
+  (let ((session (check-token request server)))
+    (check-request request server :session session)))
 
 (defclass simple-server (server)
   ((applications :initform (make-hash-table :test 'equal) :accessor applications)
