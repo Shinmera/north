@@ -35,6 +35,10 @@
    :key (error "KEY required.")
    :access :request))
 
+(defmethod print-object ((session session) stream)
+  (print-unreadable-object (session stream :type T)
+    (format stream "~a/~a" (key session) (token session))))
+
 (defclass application ()
   ((key :initarg :key :accessor key)
    (secret :initarg :secret :accessor secret)
@@ -43,6 +47,10 @@
    :key (make-nonce)
    :secret (make-nonce)
    :name (error "NAME required.")))
+
+(defmethod print-object ((application application) stream)
+  (print-unreadable-object (application stream :type T)
+    (format stream "~s ~a" (name application) (key application))))
 
 (defclass server ()
   ())
