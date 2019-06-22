@@ -6,7 +6,7 @@
 
 (asdf:defsystem north
   :version "1.0.0"
-  :license "Artistic"
+  :license "zlib"
   :author "Nicolas Hafner <shinmera@tymoon.eu>"
   :maintainer "Nicolas Hafner <shinmera@tymoon.eu>"
   :description "oAuth 1.0a server and client implementation, the successor to South."
