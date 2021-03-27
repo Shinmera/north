@@ -57,7 +57,7 @@
   (:method (method data consumer-secret &optional token-secret)
     (error "Unknown signing method ~s." method))
   (:method ((method (eql :plaintext)) data consumer-secret &optional token-secret)
-    (format NIL "~a&~@[~a~]" consumer-secret token-secret))
+    (format NIL "~a&~@[~a~]" (url-encode consumer-secret) (when token-secret (url-encode token-secret))))
   (:method ((method (eql :hmac-sha1)) data consumer-secret &optional token-secret)
     (cryptos:hmac data (sign :plaintext NIL consumer-secret token-secret) :digest :sha1))
   (:method ((method (eql :cmac-aes)) data consumer-secret &optional token-secret)
