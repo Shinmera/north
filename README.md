@@ -23,10 +23,10 @@ Visit the returned URL and enter the verification code:
     
 And finally we can access some resources:
 
-    (ql:quickload :cl-json)
+    (ql:quickload :com.inuoe.jzon)
     (defmacro with-json-decoding (() &body body)
       `(let ((drakma:*text-content-types* (list* '("application" . "json") drakma:*text-content-types*)))
-         (cl-json:decode-json-from-string
+         (com.inuoe.jzon:parse
           (progn ,@body))))
     
     (with-json-decoding ()
