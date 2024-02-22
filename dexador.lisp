@@ -15,7 +15,8 @@
 (defun purify-form-data (params)
   (loop for param in params
         collect (if (listp (cdr param))
-                    (cons (car param) (second param))
+                    (destructuring-bind (key content &key content-type &allow-other-keys) param
+                      (list key content :content-type content-type))
                     param)))
 
 (defmethod call ((request request) &rest dexador-args &key form-data)
@@ -26,7 +27,8 @@
           (apply #'dexador:request
                  (if form-data uri (quri:merge-uris params uri))
                  :method (http-method request)
-                 :headers (headers request)
+                 :headers (append (headers request)
+                                  (when form-data `(("content-type" . "multipart/mixed"))))
                  :content (when form-data (purify-form-data (parameters request)))
                  (loop for (key val) on dexador-args by #'cddr
                        unless (eql key :form-data) collect key
