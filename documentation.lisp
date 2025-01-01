@@ -527,7 +527,7 @@ See *EXTERNAL-FORMAT*")
   (function sign
     "Signs the given data using the specified method.
 
-By default, :PLAINTEXT, :HMAC-SHA1, and :CMAC-AES are supported.
+By default, :PLAINTEXT and :HMAC-SHA1 are supported.
 A string can be used for the method as well, but will be converted
 to a keyword first.")
 

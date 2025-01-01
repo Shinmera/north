@@ -15,7 +15,9 @@
                (:file "server")
                (:file "client")
                (:file "documentation"))
-  :depends-on (:uuid
-               :crypto-shortcuts
+  :depends-on (:frugal-uuid
+               :babel
+               :ironclad/mac/hmac
+               :ironclad/digest/sha1
                :cl-ppcre
                :documentation-utils))

@@ -134,7 +134,7 @@ The URL must be normalised such that the schema is in all lowercase and the port
 The parameters here are all of the parameters. Namely the oauth parameters (except the signature itself), the get parameters, and the post parameters. The parameters must again be sorted as before, but now they are concatenated differently. Namely each pair is separated by an ampersand, the key is separated from the value by an equals sign, and both keys and values must be url-encoded. Note that unlike before, values must not be surrounded by double-quotes.
 
 ##### Signing the Token
-Potentially any signature method you might want is supported. The provider can request whatever they want. North implements the plaintext, hmac-sha1, and cmac-aes methods suggested by the spec. See the relevant hashing methods for information on how they work.
+Potentially any signature method you might want is supported. The provider can request whatever they want. North implements the plaintext and hmac-sha1 methods suggested by the spec. See the relevant hashing methods for information on how they work.
 
 ### A Reminder, Just For Fun
 The request is sent, url-encoded. The authorization header has url-encoded parameter values. One of those is the signature, which was constructed from a base string that has an url-encoded url part, and an url-encoded parameter part. The parameter part has url-encoded parameter values. Url-encode!

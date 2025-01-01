@@ -25,9 +25,15 @@
 (defun remove-param (key alist)
   (remove key alist :key #'car :test #'string-equal))
 
+(defun to-octets (thing &optional (external-format *external-format*))
+  (babel:string-to-octets thing :encoding external-format))
+
+(defun from-octets (thing &optional (external-format *external-format*))
+  (babel:octets-to-string thing :encoding external-format))
+
 (defun url-encode (thing &optional (external-format *external-format*))
   (with-output-to-string (out)
-    (loop for octet across (cryptos:to-octets thing external-format)
+    (loop for octet across (to-octets thing external-format)
           for char = (code-char octet)
           do (cond ((or (char<= #\0 char #\9)
                         (char<= #\a char #\z)
@@ -45,7 +51,7 @@
                 (incf i 2))
                (#\+ (vector-push (char-code #\Space) out))
                (T (vector-push (char-code char) out)))
-          finally (return (cryptos:to-string out external-format)))))
+          finally (return (babel:octets-to-string out external-format)))))
 
 (defgeneric sign (method data consumer-secret &optional token-secret)
   (:method (method data consumer-secret &optional token-secret)
@@ -53,14 +59,15 @@
   (:method ((method (eql :plaintext)) data consumer-secret &optional token-secret)
     (format NIL "~a&~@[~a~]" (url-encode consumer-secret) (when token-secret (url-encode token-secret))))
   (:method ((method (eql :hmac-sha1)) data consumer-secret &optional token-secret)
-    (cryptos:hmac data (sign :plaintext NIL consumer-secret token-secret) :digest :sha1))
-  (:method ((method (eql :cmac-aes)) data consumer-secret &optional token-secret)
-    (cryptos:cmac data (sign :plaintext NIL consumer-secret token-secret) :normalize-key :hash))
+    (let* ((key (to-octets (sign :plaintext NIL consumer-secret token-secret)))
+           (hmac (ironclad:make-hmac key :sha1)))
+      (ironclad:update-hmac hmac (to-octets data))
+      (cl-base64:usb8-array-to-base64-string (ironclad:hmac-digest hmac))))
   (:method ((method string) data consumer-secret &optional token-secret)
     (sign (find-symbol (string-upcase method) :keyword) data consumer-secret token-secret)))
 
 (defun make-nonce ()
-  (write-to-string (uuid:make-v4-uuid)))
+  (fuuid:to-string (fuuid:make-v4)))
 
 (defun make-timestamp ()
   (write-to-string (- (get-universal-time)
