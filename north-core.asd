@@ -19,5 +19,6 @@
                :babel
                :ironclad/mac/hmac
                :ironclad/digest/sha1
+               :cl-base64
                :cl-ppcre
                :documentation-utils))
