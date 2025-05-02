@@ -19,7 +19,8 @@
    #:request-token-uri
    #:authorize-uri
    #:access-token-uri
-   #:verify-uri)
+   #:verify-uri
+   #:user-agent)
   ;; conditions.lisp
   (:export
    #:north-condition

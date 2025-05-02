@@ -195,3 +195,6 @@
 
 (defun alist->oauth-response (alist)
   (concat-params alist))
+
+(defmethod user-agent ((default (eql T)))
+  #.(format NIL "North oAuth client (~a ~a)" (machine-type) (software-type)))

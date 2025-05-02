@@ -19,7 +19,8 @@
    (request-token-uri :initarg :request-token-uri :accessor request-token-uri)
    (authorize-uri :initarg :authorize-uri :accessor authorize-uri)
    (access-token-uri :initarg :access-token-uri :accessor access-token-uri)
-   (verify-uri :initarg :verify-uri :accessor verify-uri))
+   (verify-uri :initarg :verify-uri :accessor verify-uri)
+   (user-agent :initarg :user-agent :accessor user-agent))
   (:default-initargs
    :key (error "KEY required. This is your oAuth application's key.")
    :secret (error "SECRET required. This is your oAuth application's secret.")
@@ -29,7 +30,8 @@
    :request-token-uri (error "REQUEST-TOKEN-URI required.")
    :authorize-uri (error "AUTHORIZE-URI required.")
    :access-token-uri (error "ACCESS-TOKEN-URI required.")
-   :verify-uri NIL))
+   :verify-uri NIL
+   :user-agent (user-agent T)))
 
 (defmethod make-load-form ((client client) &optional env)
   (declare (ignore env))
@@ -65,7 +67,7 @@
                         collect (destructuring-bind (file &key (content-type "application/octet-stream") filename)
                                     (if (consp v) v (list v))
                                   (list k file :content-type content-type :filename filename)))))
-    (values (call request :form-data T)
+    (values (call request :form-data T :user-agent (user-agent client))
             request)))
 
 (defmethod initiate-authentication ((client client))
