@@ -2,7 +2,7 @@
 North is a library that implements the OAuth 1.0a consumer and provider protocols. It allows you to connect to an OAuth provider and request its resources, or to build your own OAuth provider.
 
 ## How To: Client
-If you want to connect to an OAuth provider, simply instantiate a `client` and pass it the required parameters. Following the Twitter requirements and using the tokens from [Chirp](http://shinmera.github.io/chirp/), we end up with this:
+If you want to connect to an OAuth provider, simply instantiate a `client` and pass it the required parameters. Following the Twitter requirements and using the tokens from [Chirp](http://shinmera.com/docs/chirp/), we end up with this:
 
     (defvar *client*
       (make-instance
@@ -75,7 +75,7 @@ The access token endpoint should call `oauth/access-token` and return the values
 Any such endpoint should call `oauth/verify`. This function returns nothing useful and only performs checks that if failed result in an error being signalled as usual. You may additionally want to check the session for permissions to access the specific endpoint if such a distinction exists. However, such additional functionality is up to you to design.
 
 ## An Example Server / Client Setup
-See the [north-example](https://github.com/Shinmera/north/tree/master/example) system for a primitive, simple setup of a provider and consumer.
+See the [north-example](https://shinmera.com/project/north/tree/master/example) system for a primitive, simple setup of a provider and consumer.
 
 ## OAuth Overview
 OAuth is supposed to provide a relatively convenient standardised way to authenticate a user against a service (provider), and then allow the application (consumer) to access resources on the user's behalf. Key to this are two parts, the signing process, and the actual authorisation process itself.
